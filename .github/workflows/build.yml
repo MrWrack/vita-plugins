@@ -28,7 +28,7 @@ jobs:
           ls -lh build/VitaAutoPlugin.vpk
 
       - name: Build background plugin alpha
-                shell: bash
+        shell: bash
         run: |
           set -o pipefail
           rm -rf background_plugin/build
