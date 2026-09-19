@@ -300,7 +300,7 @@ static void draw_about(void){
  txt(70,135,1.45f,"Vita AutoPlugin");
  txt(70,180,.9f,"Created by MrWrack");
  txt(70,220,.76f,"PS Vita homebrew plugin management and system tools.");
- txt(70,260,.76f,"Version 0.17 source milestone");
+ txt(70,260,.76f,"Version 0.18 install-fix milestone");
  txt(70,315,.72f,"Independent homebrew project.");
 }
 static int count(void){
