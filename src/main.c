@@ -20,13 +20,15 @@
 #define TAI_WORK "ux0:data/VitaAutoPlugin/config.working.txt"
 #define BACKUP_DIR "ux0:data/VitaAutoPlugin/backups"
 #define TAI_BACKUP "ux0:data/VitaAutoPlugin/backups/config.backup.txt"
-typedef struct { int hud,fps,cpu,gpu,ram,battery,temp,fahrenheit,auto_backup; } Settings;
-static Settings s={1,1,1,1,1,1,1,0,1};
+typedef struct {
+ int hud,fps,cpu,gpu,ram,battery,temp,fahrenheit,auto_backup;
+ int trophy_hunter,trophy_unlocker,auto_platinum,backup_trophy;
+} Settings;
+static Settings s={1,1,1,1,1,1,1,0,1, 0,0,0,1};
 
 enum Screen { HOME, TROPHY, OVERCLOCK, MONITOR, PLUGINS, RECOVERY, UPDATE, NEWS, SETTINGS, ABOUT };
 static enum Screen screen=HOME;
 static int selected=0, running=1;
-static int trophy_hunter=0,trophy_unlocker=0,auto_platinum=0,backup_trophy=1;
 static int oc_enabled=0, oc_cpu=0, oc_gpu=0; /* 0=default, 1=verified high profile */
 static int recovery_notice=0;
 static TaiConfig plugin_cfg;
@@ -35,6 +37,9 @@ static int plugin_cursor=0;
 static int plugin_view=0;
 static int test_oc_active=0;
 static vita2d_pgf *ui_font=NULL;
+static int quick_menu=0, trophy_quick_menu=0;
+static char operation_status[128]="Ready";
+static const char *APP_VERSION="v0.21";
 
 static const char *home_items[]={
  "Plugin Manager","Trophy Unlocker","System Monitor","Overclock",
@@ -48,7 +53,7 @@ static void mkdirs(void){
 }
 static void save(void){
  mkdirs(); FILE*f=fopen(CFG,"w"); if(!f)return;
- fprintf(f,"%d %d %d %d %d %d %d %d %d\n",s.hud,s.fps,s.cpu,s.gpu,s.ram,s.battery,s.temp,s.fahrenheit,s.auto_backup);
+ fprintf(f,"%d %d %d %d %d %d %d %d %d %d %d %d %d\n",s.hud,s.fps,s.cpu,s.gpu,s.ram,s.battery,s.temp,s.fahrenheit,s.auto_backup,s.trophy_hunter,s.trophy_unlocker,s.auto_platinum,s.backup_trophy);
  fclose(f);
 }
 
@@ -116,7 +121,15 @@ static int restore_working_config(void){
 }
 static int create_config_backup(void){
  const char *src=tai_config_path(); if(!src)return 0;
- mkdirs(); return copy_file(src,TAI_BACKUP);
+ mkdirs();
+ /* Keep the legacy latest-backup path and an additional numbered snapshot. */
+ if(!copy_file(src,TAI_BACKUP)) return 0;
+ char path[160];
+ for(int i=1;i<=9999;i++){
+  snprintf(path,sizeof(path),BACKUP_DIR "/config.backup.%04d.txt",i);
+  if(!exists(path)) return copy_file(src,path);
+ }
+ return 0;
 }
 
 static void log_recovery(const char *msg){
@@ -161,7 +174,11 @@ static void startup_recovery(void){
 
 static void load(void){
  FILE*f=fopen(CFG,"r"); if(!f)return;
- fscanf(f,"%d %d %d %d %d %d %d %d %d",&s.hud,&s.fps,&s.cpu,&s.gpu,&s.ram,&s.battery,&s.temp,&s.fahrenheit,&s.auto_backup);
+ /* Backward compatible: v0.19 files contain 9 values. New trophy values
+    keep their defaults when the older file ends after auto_backup. */
+ fscanf(f,"%d %d %d %d %d %d %d %d %d %d %d %d %d",
+  &s.hud,&s.fps,&s.cpu,&s.gpu,&s.ram,&s.battery,&s.temp,&s.fahrenheit,&s.auto_backup,
+  &s.trophy_hunter,&s.trophy_unlocker,&s.auto_platinum,&s.backup_trophy);
  fclose(f);
 }
 static void txt(float x,float y,float scale,const char*t){
@@ -171,51 +188,120 @@ static void txt_dim(float x,float y,float scale,const char*t){
  if(ui_font && t) vita2d_pgf_draw_text(ui_font,x,y,RGBA8(185,205,225,255),scale,t);
 }
 static void panel(float x,float y,float w,float h){
- vita2d_draw_rectangle(x,y,w,h,RGBA8(8,29,51,235));
+ vita2d_draw_rectangle(x,y,w,h,RGBA8(7,25,45,244));
+ vita2d_draw_rectangle(x,y,w,2,RGBA8(20,112,176,255));
+ vita2d_draw_rectangle(x,y,2,h,RGBA8(13,72,119,255));
+}
+static void github_mark(float x,float y,float sc){
+ /* Small vector GitHub-style cat mark: no external texture required. */
+ unsigned int c=RGBA8(245,250,255,255);
+ vita2d_draw_rectangle(x+4*sc,y+6*sc,24*sc,20*sc,c);
+ vita2d_draw_rectangle(x+7*sc,y+2*sc,6*sc,8*sc,c);
+ vita2d_draw_rectangle(x+20*sc,y+2*sc,6*sc,8*sc,c);
+ vita2d_draw_rectangle(x+1*sc,y+14*sc,7*sc,6*sc,c);
+ vita2d_draw_rectangle(x+25*sc,y+14*sc,7*sc,6*sc,c);
+ vita2d_draw_rectangle(x+13*sc,y+24*sc,7*sc,9*sc,c);
+}
+static void crown_mark(float x,float y,float sc){
+ /* Crisp pixel/vector crown sized for the Vita screen. */
+ unsigned int c=RGBA8(255,214,64,255);
+ vita2d_draw_rectangle(x,y+10*sc,30*sc,10*sc,c);
+ vita2d_draw_rectangle(x+2*sc,y+4*sc,5*sc,9*sc,c);
+ vita2d_draw_rectangle(x+12*sc,y,6*sc,13*sc,c);
+ vita2d_draw_rectangle(x+23*sc,y+4*sc,5*sc,9*sc,c);
+ vita2d_draw_rectangle(x+2*sc,y+22*sc,26*sc,4*sc,c);
+}
+static void brand(float x,float y,float scale){
+ github_mark(x,y-25*scale,scale);
+ txt_dim(x+39*scale,y-11*scale,.52f*scale,"Made by");
+ txt(x+39*scale,y+10*scale,.82f*scale,"MrWrack");
+ crown_mark(x+132*scale,y-22*scale,.72f*scale);
+}
+
+static void badge(float x,float y,const char *label){
+ vita2d_draw_rectangle(x,y,34,34,RGBA8(10,99,166,255));
+ vita2d_draw_rectangle(x+2,y+2,30,30,RGBA8(8,39,70,255));
+ txt(x+10,y+24,.72f,label);
 }
 static void title(const char*t){
- vita2d_draw_rectangle(0,0,960,68,RGBA8(7,32,59,255));
- vita2d_draw_rectangle(0,64,960,4,RGBA8(18,154,230,255));
- txt(24,44,1.34f,t);
- txt(724,29,.72f,"Created by");
- txt(724,51,.94f,"MrWrack");
+ vita2d_draw_rectangle(0,0,960,66,RGBA8(4,18,34,255));
+ vita2d_draw_rectangle(0,62,960,4,RGBA8(13,142,221,255));
+ txt(22,34,1.16f,"Vita AutoPlugin"); txt(214,34,.82f,APP_VERSION);
+ txt_dim(22,55,.61f,"Plugins  |  System  |  Tools  |  Recovery");
+ brand(720,38,.92f);
+ if(t && strcmp(t,"Vita AutoPlugin")) txt(360,41,.82f,t);
 }
 static void row(int i,float y,const char*t){
  if(i==selected){
-  vita2d_draw_rectangle(20,y-25,430,34,RGBA8(12,116,183,255));
-  vita2d_draw_rectangle(20,y-25,5,34,RGBA8(110,220,255,255));
+  vita2d_draw_rectangle(18,y-26,430,36,RGBA8(10,105,174,255));
+  vita2d_draw_rectangle(18,y-26,5,36,RGBA8(94,220,255,255));
  }
- txt(36,y,.91f,t);
+ txt(36,y,.88f,t);
 }
 static void footer(void){
- vita2d_draw_rectangle(0,505,960,39,RGBA8(5,24,43,255));
- txt(22,531,.70f,"D-PAD Navigate     X Select / Toggle     O Back     R + UP Overlay");
+ vita2d_draw_rectangle(0,506,960,38,RGBA8(3,15,29,255));
+ vita2d_draw_rectangle(0,506,960,2,RGBA8(12,74,120,255));
+ txt(20,531,.66f,"X Select / Toggle     O Back     D-PAD Navigate");
+ txt_dim(635,531,.61f,"R + UP Quick Menu   L + SELECT Trophy");
 }
 static void info_heading(const char*t){txt(505,112,.94f,t);}
 static void info_line(float y,const char*t){txt_dim(505,y,.70f,t);}
+static void nav_item(int i,float y,const char *tag,const char *label){
+ if(i==selected){vita2d_draw_rectangle(12,y-26,278,38,RGBA8(10,105,174,255));vita2d_draw_rectangle(12,y-26,5,38,RGBA8(100,225,255,255));}
+ badge(24,y-29,tag); txt(70,y,.79f,label);
+}
+static void small_status(float x,float y,const char *name,const char *value){
+ txt_dim(x,y,.64f,name); txt(x+190,y,.64f,value);
+}
+static void action_button(float x,float y,const char *tag,const char *label){
+ vita2d_draw_rectangle(x,y,278,34,RGBA8(9,35,61,255));
+ vita2d_draw_rectangle(x,y,3,34,RGBA8(15,117,184,255));
+ txt(x+13,y+23,.65f,tag); txt(x+45,y+23,.66f,label);
+}
 
 static void draw_home(void){
  title("Vita AutoPlugin");
- panel(18,78,442,414); panel(482,78,460,414);
- for(int i=0;i<HOME_N;i++) row(i,112+i*40,home_items[i]);
- info_heading("MrWrack Vita Control Center");
- info_line(151,"Safe plugin management for PS Vita.");
- info_line(180,"Test changes before saving a working config.");
- info_line(225,"Quick access:");
- txt(505,255,.76f,"Trophy Unlocker");
- txt(505,282,.76f,"System Monitor");
- txt(505,309,.76f,"Overclock");
- txt(505,336,.76f,"Recovery & Backup");
- info_line(390,"New plugins stay DISABLED by default.");
- info_line(420,"Auto Save stays OFF and locked.");
+ panel(10,78,286,414); panel(310,78,638,414);
+ const char *tags[]={"H","P","T","M","OC","R","U","N","S"};
+ for(int i=0;i<HOME_N;i++) nav_item(i,112+i*40,tags[i],home_items[i]);
+
+ /* Dashboard hero */
+ vita2d_draw_rectangle(326,92,606,94,RGBA8(5,31,57,255));
+ vita2d_draw_rectangle(326,92,606,3,RGBA8(22,151,224,255));
+ txt(348,127,1.18f,"Vita AutoPlugin"); txt(536,127,.83f,APP_VERSION);
+ txt_dim(348,153,.66f,"PS Vita plugin management, recovery and system tools");
+ brand(760,142,.82f);
+
+ panel(326,200,286,132); panel(626,200,306,132);
+ txt(344,226,.78f,"System Status");
+ small_status(344,252,"Vita AutoPlugin","Running");
+ small_status(344,276,"TrophyHax 2.0","Enabled");
+ small_status(344,300,"Config","Loaded");
+ small_status(344,324,"Backup",exists(TAI_BACKUP)?"Available":"None");
+
+ txt(644,226,.78f,"Quick Actions");
+ action_button(644,238,"P","Plugin Manager");
+ action_button(644,276,"T","Trophy Unlocker");
+ action_button(644,314,"R","Recovery & Backup");
+
+ panel(326,346,286,132); panel(626,346,306,132);
+ txt(344,372,.78f,"Trophy Unlocker");
+ small_status(344,400,"Trophy Hunter",s.trophy_hunter?"ON":"OFF");
+ small_status(344,424,"Trophy Unlocker",s.trophy_unlocker?"ON":"OFF");
+ txt_dim(344,452,.58f,(s.trophy_hunter&&s.trophy_unlocker)?"L + SELECT quick menu ready":"Enable both for Trophy Quick Menu");
+
+ txt(644,372,.78f,"Recovery & Backup");
+ action_button(644,384,"S","Save Working Config");
+ action_button(644,422,"B","Create Backup Now");
+ txt_dim(644,468,.58f,operation_status);
 }
 static void draw_trophy(void){
  title("Trophy Unlocker"); panel(18,78,442,414); panel(482,78,460,414);
  char t0[48],t1[48],t4[48],t5[64];
- snprintf(t0,sizeof(t0),"Trophy Hunter [%s]",trophy_hunter?"ON":"OFF");
- snprintf(t1,sizeof(t1),"Trophy Unlocker [%s]",trophy_unlocker?"ON":"OFF");
- snprintf(t4,sizeof(t4),"Auto Platinum [%s]",auto_platinum?"ON":"OFF");
- snprintf(t5,sizeof(t5),"Backup Before Unlock [%s]",backup_trophy?"ON":"OFF");
+ snprintf(t0,sizeof(t0),"Trophy Hunter [%s]",s.trophy_hunter?"ON":"OFF");
+ snprintf(t1,sizeof(t1),"Trophy Unlocker [%s]",s.trophy_unlocker?"ON":"OFF");
+ snprintf(t4,sizeof(t4),"Auto Platinum [%s]",s.auto_platinum?"ON":"OFF");
+ snprintf(t5,sizeof(t5),"Backup Before Unlock [%s]",s.backup_trophy?"ON":"OFF");
  const char* a[]={t0,t1,"Unlock Selected","Unlock All",t4,t5,"Save Trophy State","Restore Trophy Backup","History / Logs"};
  for(int i=0;i<9;i++)row(i,112+i*40,a[i]);
  info_heading("Trophy Safety");
@@ -225,6 +311,7 @@ static void draw_trophy(void){
  info_line(250,"Platinum is processed last.");
  info_line(303,"Unlock writes remain blocked until validation");
  info_line(330,"and backup handling are fully implemented.");
+ info_line(375,(s.trophy_hunter && s.trophy_unlocker)?"L + SELECT Quick Menu: READY":"L + SELECT Quick Menu: DISABLED");
 }
 static void draw_overclock(void){
  title("Overclock"); panel(18,78,442,414); panel(482,78,460,414);
@@ -295,6 +382,7 @@ static void draw_recovery(void){
  info_line(181,"Create a backup before changing taiHEN config.");
  info_line(226,"A failed TEST should not replace Last Working.");
  info_line(271,exists(TAI_BACKUP)?"Config Backup: AVAILABLE":"Config Backup: NONE");
+ info_line(315,operation_status);
 }
 static void draw_update(void){
  title("Update Center"); panel(18,78,442,414); panel(482,78,460,414);
@@ -341,9 +429,9 @@ static void draw_settings(void){
 static void draw_about(void){
  title("About"); panel(18,78,924,414);
  txt(55,145,1.55f,"Vita AutoPlugin");
- txt(55,195,1.12f,"Created by MrWrack");
+ brand(55,205,1.20f);
  txt(55,242,.82f,"PS Vita homebrew plugin management and system tools.");
- txt(55,286,.82f,"Version 0.19 - UI & Readability Fix");
+ txt(55,286,.82f,"Version 0.21 - Full UI Rebuild");
  txt_dim(55,340,.74f,"Independent homebrew project.");
  txt_dim(55,374,.74f,"New plugins are disabled by default. Auto Save is locked OFF.");
 }
@@ -363,9 +451,9 @@ static void action(void){
  }
  if(screen==SETTINGS){
   if(selected==1){
-    if(save_working_config()) log_recovery("Working config saved manually from Settings.");
+    if(save_working_config()){strcpy(operation_status,"WORKING CONFIG SAVED");log_recovery("Working config saved manually from Settings.");}else strcpy(operation_status,"SAVE FAILED - taiHEN config not found");
   } else if(selected==2){
-    if(create_config_backup()) log_recovery("Manual backup created from Settings.");
+    if(create_config_backup()){strcpy(operation_status,"BACKUP CREATED");log_recovery("Manual backup created from Settings.");}else strcpy(operation_status,"BACKUP FAILED - taiHEN config not found");
   }
  }
  if(screen==PLUGINS){
@@ -392,16 +480,16 @@ static void action(void){
   }
  }
  if(screen==RECOVERY){
-  if(selected==0){ if(save_working_config()) log_recovery("Last Working Config saved manually from Recovery."); }
-  else if(selected==1){ if(create_config_backup()) log_recovery("Manual taiHEN config backup created."); }
-  else if(selected==2){ if(restore_working_config()) log_recovery("Last Working Config restored manually."); }
+  if(selected==0){ if(save_working_config()){strcpy(operation_status,"WORKING CONFIG SAVED");log_recovery("Last Working Config saved manually from Recovery.");}else strcpy(operation_status,"SAVE FAILED - taiHEN config not found"); }
+  else if(selected==1){ if(create_config_backup()){strcpy(operation_status,"BACKUP CREATED");log_recovery("Manual taiHEN config backup created.");}else strcpy(operation_status,"BACKUP FAILED - taiHEN config not found"); }
+  else if(selected==2){ if(restore_working_config()){strcpy(operation_status,"LAST WORKING RESTORED");log_recovery("Last Working Config restored manually.");}else strcpy(operation_status,"RESTORE FAILED - no working config"); }
   /* Auto Save remains locked OFF. */
  }
  if(screen==TROPHY){
-  if(selected==0) trophy_hunter=!trophy_hunter;
-  else if(selected==1) trophy_unlocker=!trophy_unlocker;
-  else if(selected==4) auto_platinum=!auto_platinum;
-  else if(selected==5) backup_trophy=!backup_trophy;
+  if(selected==0){s.trophy_hunter=!s.trophy_hunter;save();}
+  else if(selected==1){s.trophy_unlocker=!s.trophy_unlocker;save();}
+  else if(selected==4){s.auto_platinum=!s.auto_platinum;save();}
+  else if(selected==5){s.backup_trophy=!s.backup_trophy;save();}
   /* Unlock actions stay blocked until title/trophy DB validation + backup
      are implemented. This avoids unsafe placeholder writes. */
  }
@@ -418,6 +506,25 @@ static void action(void){
      complete validation + rollback path is tested on-device. */
  }
 }
+static void draw_quick_overlay(void){
+ vita2d_draw_rectangle(500,82,430,360,RGBA8(4,20,38,245));
+ vita2d_draw_rectangle(500,82,430,4,RGBA8(110,220,255,255));
+ txt(525,122,1.05f,trophy_quick_menu?"Trophy Quick Menu":"Vita AutoPlugin Quick Menu");
+ if(trophy_quick_menu){
+  txt(525,165,.82f,s.trophy_hunter?"Trophy Hunter [ON]":"Trophy Hunter [OFF]");
+  txt(525,200,.82f,s.trophy_unlocker?"Trophy Unlocker [ON]":"Trophy Unlocker [OFF]");
+  txt_dim(525,244,.72f,"Unlock actions require game/DB verification.");
+  txt_dim(525,275,.72f,"Backup is required before trophy writes.");
+  txt(525,330,.78f,"O  Close Quick Menu");
+ }else{
+  txt(525,165,.82f,"System Monitor / HUD");
+  txt(525,200,.82f,"Overclock Status");
+  txt(525,235,.82f,"Plugin Status");
+  txt(525,270,.82f,"Recovery & Backup");
+  txt(525,330,.78f,"O  Close Quick Menu");
+ }
+}
+
 int main(void){
  sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG); load(); startup_recovery();
  vita2d_init(); vita2d_set_clear_color(RGBA8(6,18,36,255));
@@ -427,10 +534,13 @@ int main(void){
  while(running){
   sceCtrlPeekBufferPositive(0,&p,1); unsigned q=p.buttons&~o.buttons;
   int n=count();
-  if(q&SCE_CTRL_UP) selected=(selected+n-1)%n;
-  if(q&SCE_CTRL_DOWN) selected=(selected+1)%n;
+  if((p.buttons&SCE_CTRL_RTRIGGER) && (q&SCE_CTRL_UP)){quick_menu=!quick_menu;trophy_quick_menu=0;}
+  if((p.buttons&SCE_CTRL_LTRIGGER) && (q&SCE_CTRL_SELECT) && s.trophy_hunter && s.trophy_unlocker){trophy_quick_menu=!trophy_quick_menu;quick_menu=0;}
+  if((quick_menu||trophy_quick_menu) && (q&SCE_CTRL_CIRCLE)){quick_menu=0;trophy_quick_menu=0;q&=~SCE_CTRL_CIRCLE;}
+  if(!(quick_menu||trophy_quick_menu) && (q&SCE_CTRL_UP)) selected=(selected+n-1)%n;
+  if(!(quick_menu||trophy_quick_menu) && (q&SCE_CTRL_DOWN)) selected=(selected+1)%n;
   if(screen==PLUGINS && plugin_view) plugin_cursor=selected;
-  if(q&SCE_CTRL_CROSS) action();
+  if(!(quick_menu||trophy_quick_menu) && (q&SCE_CTRL_CROSS)) action();
   if(q&SCE_CTRL_CIRCLE){
    if(screen==PLUGINS && plugin_view){plugin_view=0;selected=0;}
    else if(screen==HOME)running=0;
@@ -440,7 +550,7 @@ int main(void){
   if(screen==MONITOR && selected==7 && (q&SCE_CTRL_RIGHT)){s.fahrenheit=1;save();}
   vita2d_start_drawing(); vita2d_clear_screen();
   switch(screen){case HOME:draw_home();break;case TROPHY:draw_trophy();break;case OVERCLOCK:draw_overclock();break;case MONITOR:draw_monitor();break;case PLUGINS:draw_plugins();break;case RECOVERY:draw_recovery();break;case UPDATE:draw_update();break;case NEWS:draw_news();break;case SETTINGS:draw_settings();break;case ABOUT:draw_about();break;}
-  footer(); vita2d_end_drawing(); vita2d_swap_buffers();
+  footer(); if(quick_menu||trophy_quick_menu)draw_quick_overlay(); vita2d_end_drawing(); vita2d_swap_buffers();
   o=p; sceKernelDelayThread(16000);
  }
  mark_clean_exit(); ui_font_free(ui_font); ui_font=NULL; vita2d_fini(); sceKernelExitProcess(0); return 0;
