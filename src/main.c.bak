@@ -44,7 +44,7 @@ static int fps_value=0, fps_frames=0;
 static unsigned int fps_tick=0;
 static char operation_status[128]="Ready";
 static char last_backup_name[96]="None";
-static const char *APP_VERSION="v0.27";
+static const char *APP_VERSION="v0.26";
 
 enum IconId { ICO_HOME,ICO_PLUGIN,ICO_TROPHY,ICO_MONITOR,ICO_OVERCLOCK,ICO_RECOVERY,ICO_UPDATE,ICO_NEWS,ICO_SETTINGS,ICO_ABOUT,ICO_GITHUB,ICO_CROWN,ICO_SAVE,ICO_BACKUP,ICO_RESTORE,ICO_WARNING,ICO_CHECK,ICO_STATUS,ICO_COUNT };
 static vita2d_texture *icons[ICO_COUNT]={0};
@@ -228,13 +228,13 @@ static void panel(float x,float y,float w,float h){
  vita2d_draw_rectangle(x,y,w,2,RGBA8(20,112,176,255));
  vita2d_draw_rectangle(x,y,2,h,RGBA8(13,72,119,255));
 }
-static void github_mark(float x,float y,float sc){ draw_icon(ICO_GITHUB,x,y,sc*.32f); }
-static void crown_mark(float x,float y,float sc){ draw_icon(ICO_CROWN,x,y,sc*.34f); }
+static void github_mark(float x,float y,float sc){ draw_icon(ICO_GITHUB,x,y,sc*.25f); }
+static void crown_mark(float x,float y,float sc){ draw_icon(ICO_CROWN,x,y,sc*.29f); }
 static void brand(float x,float y,float scale){
- github_mark(x,y-29*scale,scale);
- txt_dim(x+47*scale,y-12*scale,.70f*scale,"MADE BY");
- txt(x+47*scale,y+13*scale,.98f*scale,"MrWrack");
- crown_mark(x+183*scale,y-27*scale,.86f*scale);
+ github_mark(x,y-25*scale,scale);
+ txt_dim(x+39*scale,y-11*scale,.52f*scale,"Made by");
+ txt(x+39*scale,y+10*scale,.82f*scale,"MrWrack");
+ crown_mark(x+132*scale,y-22*scale,.72f*scale);
 }
 
 static void badge(float x,float y,const char *label){
@@ -247,7 +247,7 @@ static void title(const char*t){
  vita2d_draw_rectangle(0,62,960,4,RGBA8(13,142,221,255));
  txt(22,34,1.16f,"Vita AutoPlugin"); txt(214,34,.82f,APP_VERSION);
  txt_dim(22,55,.61f,"Plugins  |  System  |  Tools  |  Recovery");
- brand(690,38,.96f);
+ brand(720,38,.92f);
  if(t && strcmp(t,"Vita AutoPlugin")) txt(360,41,.82f,t);
 }
 static void row(int i,float y,const char*t){
