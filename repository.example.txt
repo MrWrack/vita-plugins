@@ -1,0 +1,2 @@
+# id|name|version|developer|category|file_url|sha256|section|description
+example|Example Plugin|1.0|Developer|Utility|https://example.invalid/plugin.suprx|0000000000000000000000000000000000000000000000000000000000000000|*ALL|Example only - replace with a verified repository entry.
