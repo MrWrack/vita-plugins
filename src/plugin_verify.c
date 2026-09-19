@@ -38,10 +38,17 @@ static void fin(SHA256_CTX*c,uint8_t hash[32]){
 }
 int mrwrack_sha256_file(const char *path,char out[65]){
  FILE*f=fopen(path,"rb");if(!f)return 0;SHA256_CTX c;init(&c);uint8_t b[4096];size_t n;
- while((n=fread(b,1,sizeof(b),f))>0)upd(&c,b,n);if(ferror(f)){fclose(f);return 0;}fclose(f);
+ while((n=fread(b,1,sizeof(b),f))>0) upd(&c,b,n);
+ if(ferror(f)){fclose(f);return 0;}
+ fclose(f);
  uint8_t h[32];fin(&c,h);static const char*x="0123456789abcdef";for(int i=0;i<32;i++){out[i*2]=x[h[i]>>4];out[i*2+1]=x[h[i]&15];}out[64]=0;return 1;
 }
 int mrwrack_verify_sha256(const char *path,const char *expected){
- if(!expected||strlen(expected)!=64)return 0;char got[65];if(!mrwrack_sha256_file(path,got))return 0;
- for(int i=0;i<64;i++)if(tolower((unsigned char)got[i])!=tolower((unsigned char)expected[i]))return 0;return 1;
+ if(!expected||strlen(expected)!=64) return 0;
+ char got[65];
+ if(!mrwrack_sha256_file(path,got)) return 0;
+ for(int i=0;i<64;i++){
+  if(tolower((unsigned char)got[i])!=tolower((unsigned char)expected[i])) return 0;
+ }
+ return 1;
 }

@@ -7,7 +7,8 @@
    Format: id|name|version|developer|category|file_url|sha256|section|description
    default_enabled is ALWAYS forced to 0 by the Vita client. */
 int repository_load_local(const char *path, Repository *repo){
- if(!repo)return 0; memset(repo,0,sizeof(*repo));
+ if(!repo) return 0;
+ memset(repo,0,sizeof(*repo));
  FILE*f=fopen(path,"r"); if(!f)return 0;
  char line[1024];
  while(repo->count<REPO_MAX_PLUGINS && fgets(line,sizeof(line),f)){

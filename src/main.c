@@ -165,143 +165,187 @@ static void load(void){
  fclose(f);
 }
 static void txt(float x,float y,float scale,const char*t){
- if(ui_font && t) vita2d_pgf_draw_text(ui_font,x,y,RGBA8(240,250,255,255),scale,t);
+ if(ui_font && t) vita2d_pgf_draw_text(ui_font,x,y,RGBA8(245,250,255,255),scale,t);
+}
+static void txt_dim(float x,float y,float scale,const char*t){
+ if(ui_font && t) vita2d_pgf_draw_text(ui_font,x,y,RGBA8(185,205,225,255),scale,t);
+}
+static void panel(float x,float y,float w,float h){
+ vita2d_draw_rectangle(x,y,w,h,RGBA8(8,29,51,235));
 }
 static void title(const char*t){
- vita2d_draw_rectangle(0,0,960,62,RGBA8(9,35,65,255));
- txt(25,41,1.22f,t); txt(725,40,.78f,"Created by MrWrack");
+ vita2d_draw_rectangle(0,0,960,68,RGBA8(7,32,59,255));
+ vita2d_draw_rectangle(0,64,960,4,RGBA8(18,154,230,255));
+ txt(24,44,1.34f,t);
+ txt(724,29,.72f,"Created by");
+ txt(724,51,.94f,"MrWrack");
 }
 static void row(int i,float y,const char*t){
- if(i==selected) vita2d_draw_rectangle(22,y-18,430,25,RGBA8(15,87,130,255));
- txt(36,y,.82f,t);
+ if(i==selected){
+  vita2d_draw_rectangle(20,y-25,430,34,RGBA8(12,116,183,255));
+  vita2d_draw_rectangle(20,y-25,5,34,RGBA8(110,220,255,255));
+ }
+ txt(36,y,.91f,t);
 }
-static void footer(void){txt(24,525,.66f,"UP/DOWN Navigate   X Select/Toggle   O Back   R+UP Overlay");}
+static void footer(void){
+ vita2d_draw_rectangle(0,505,960,39,RGBA8(5,24,43,255));
+ txt(22,531,.70f,"D-PAD Navigate     X Select / Toggle     O Back     R + UP Overlay");
+}
+static void info_heading(const char*t){txt(505,112,.94f,t);}
+static void info_line(float y,const char*t){txt_dim(505,y,.70f,t);}
 
 static void draw_home(void){
  title("Vita AutoPlugin");
- for(int i=0;i<HOME_N;i++) row(i,100+i*39,home_items[i]);
- txt(510,112,1.0f,"MrWrack Vita Control Center");
- txt(510,150,.75f,"Plugins, trophies, monitoring, overclock,");
- txt(510,175,.75f,"recovery and updates in one readable UI.");
+ panel(18,78,442,414); panel(482,78,460,414);
+ for(int i=0;i<HOME_N;i++) row(i,112+i*40,home_items[i]);
+ info_heading("MrWrack Vita Control Center");
+ info_line(151,"Safe plugin management for PS Vita.");
+ info_line(180,"Test changes before saving a working config.");
+ info_line(225,"Quick access:");
+ txt(505,255,.76f,"Trophy Unlocker");
+ txt(505,282,.76f,"System Monitor");
+ txt(505,309,.76f,"Overclock");
+ txt(505,336,.76f,"Recovery & Backup");
+ info_line(390,"New plugins stay DISABLED by default.");
+ info_line(420,"Auto Save stays OFF and locked.");
 }
 static void draw_trophy(void){
- title("Trophy Unlocker");
+ title("Trophy Unlocker"); panel(18,78,442,414); panel(482,78,460,414);
  char t0[48],t1[48],t4[48],t5[64];
  snprintf(t0,sizeof(t0),"Trophy Hunter [%s]",trophy_hunter?"ON":"OFF");
  snprintf(t1,sizeof(t1),"Trophy Unlocker [%s]",trophy_unlocker?"ON":"OFF");
  snprintf(t4,sizeof(t4),"Auto Platinum [%s]",auto_platinum?"ON":"OFF");
  snprintf(t5,sizeof(t5),"Backup Before Unlock [%s]",backup_trophy?"ON":"OFF");
  const char* a[]={t0,t1,"Unlock Selected","Unlock All",t4,t5,"Save Trophy State","Restore Trophy Backup","History / Logs"};
- for(int i=0;i<9;i++)row(i,100+i*38,a[i]);
- txt(510,110,.76f,"L + SELECT Quick Menu requires Hunter + Unlocker ON.");
- txt(510,145,.76f,"Flow: Verify Game > Backup > Unlock > Verify Locally.");
- txt(510,180,.76f,"No PSN verification is claimed from local state.");
+ for(int i=0;i<9;i++)row(i,112+i*40,a[i]);
+ info_heading("Trophy Safety");
+ info_line(151,"L + SELECT requires Hunter + Unlocker ON.");
+ info_line(184,"Verify Game > Backup > Unlock > Verify Locally");
+ info_line(217,"Already unlocked trophies remain unchanged.");
+ info_line(250,"Platinum is processed last.");
+ info_line(303,"Unlock writes remain blocked until validation");
+ info_line(330,"and backup handling are fully implemented.");
 }
 static void draw_overclock(void){
- title("Overclock");
+ title("Overclock"); panel(18,78,442,414); panel(482,78,460,414);
  char a0[48],a1[48],a2[48];
  snprintf(a0,sizeof(a0),"Overclock [%s]",oc_enabled?"ON":"OFF");
  snprintf(a1,sizeof(a1),"CPU Clock [%s]",oc_cpu?"444 MHz":"Default");
  snprintf(a2,sizeof(a2),"GPU Clock [%s]",oc_gpu?"222 MHz":"Default");
- const char*a[]={a0,a1,a2,"Test Clock Profile","Save as Working Profile","Restore Last Working","Reset to Default","Apply on Boot [OFF]"};
- for(int i=0;i<8;i++)row(i,100+i*40,a[i]);
- txt(510,110,.76f,"Only verified Vita clock steps will be selectable.");
- txt(510,145,.76f,"New values remain a TEST profile until manually saved.");
- txt(510,180,.76f,"Apply on Boot defaults OFF.");
- if(recovery_notice) txt(510,205,.72f,"RECOVERY: prior TEST profile discarded; Working restored.");
- txt(510,230,.72f,"WARNING: higher clocks can increase heat, battery use,");
- txt(510,255,.72f,"instability and hardware stress.");
+ const char*a[]={a0,a1,a2,"Test Clock Profile","Save Working Profile","Restore Last Working","Reset to Default","Apply on Boot [OFF]"};
+ for(int i=0;i<8;i++)row(i,112+i*43,a[i]);
+ info_heading("Test First");
+ info_line(151,"New values remain a TEST profile.");
+ info_line(181,"Apply on Boot stays OFF by default.");
+ info_line(226,"WARNING");
+ info_line(256,"Higher clocks can increase heat, battery use,");
+ info_line(283,"instability, crashes and hardware stress.");
+ if(recovery_notice) info_line(335,"RECOVERY: prior TEST profile was discarded.");
+ info_line(390,"Hardware clock writes are not enabled yet.");
 }
 static void draw_monitor(void){
- title("System Monitor");
+ title("System Monitor"); panel(18,78,442,414); panel(482,78,460,414);
  char b[64]; const char*n[]={"HUD","FPS","CPU Clock","GPU Clock","RAM Usage","Battery %","BAT TEMP"};
  int*v[]={&s.hud,&s.fps,&s.cpu,&s.gpu,&s.ram,&s.battery,&s.temp};
- for(int i=0;i<7;i++){snprintf(b,sizeof(b),"%s [%s]",n[i],*v[i]?"ON":"OFF");row(i,100+i*39,b);}
- snprintf(b,sizeof(b),"Temperature Unit [%s]",s.fahrenheit?"F":"C"); row(7,373,b);
- txt(510,110,.76f,"HUD OFF hides all in-game monitor values.");
- txt(510,145,.76f,"Individual selections are preserved.");
- txt(510,180,.76f,"Temperature uses BAT TEMP; no fake RAM/CPU/GPU temp.");
+ for(int i=0;i<7;i++){snprintf(b,sizeof(b),"%s [%s]",n[i],*v[i]?"ON":"OFF");row(i,112+i*43,b);}
+ snprintf(b,sizeof(b),"Temperature Unit [%s]",s.fahrenheit?"F":"C"); row(7,413,b);
+ info_heading("HUD Settings");
+ info_line(151,"HUD OFF hides all monitor values immediately.");
+ info_line(181,"Individual choices are preserved while HUD is OFF.");
+ info_line(226,"Available values:");
+ info_line(256,"FPS / CPU Clock / GPU Clock / RAM Usage");
+ info_line(283,"Battery % / BAT TEMP");
+ info_line(328,"No fake CPU, GPU or RAM temperatures.");
 }
 static void draw_plugins(void){
- title(plugin_view?"Installed Plugins":"Plugin Manager");
+ title(plugin_view?"Installed Plugins":"Plugin Manager"); panel(18,78,924,414);
  if(plugin_view){
   int n=plugin_count();
-  if(!plugin_cfg_loaded){txt(40,115,.82f,"No taiHEN configuration could be loaded.");return;}
-  if(!n){txt(40,115,.82f,"No .skprx/.suprx entries found.");return;}
-  int first=plugin_cursor>8?plugin_cursor-8:0, shown=0;
-  for(int k=first;k<n && shown<9;k++,shown++){
+  if(!plugin_cfg_loaded){txt(40,125,.90f,"No taiHEN configuration could be loaded.");return;}
+  if(!n){txt(40,125,.90f,"No .skprx/.suprx entries found.");return;}
+  int first=plugin_cursor>7?plugin_cursor-7:0, shown=0;
+  for(int k=first;k<n && shown<8;k++,shown++){
    TaiLine*l=plugin_at(k); if(!l)continue;
    const char*p=l->text; int en=l->type==TAI_PLUGIN;
    if(!en){const char*q=strstr(p,"# MRWRACK_DISABLED "); if(q)p=q+19;}
-   char b[210]; snprintf(b,sizeof(b),"%s [%s]",p,en?"ENABLED":"DISABLED");
-   if(k==plugin_cursor) vita2d_draw_rectangle(22,82+shown*42,900,31,RGBA8(15,87,130,255));
-   txt(35,104+shown*42,.69f,b);
-   char sec[96]; snprintf(sec,sizeof(sec),"Section: %s",l->section[0]?l->section:"(unknown)");
-   txt(610,104+shown*42,.58f,sec);
+   char b[320]; snprintf(b,sizeof(b),"%.250s [%s]",p,en?"ENABLED":"DISABLED");
+   if(k==plugin_cursor){vita2d_draw_rectangle(24,88+shown*48,910,38,RGBA8(12,116,183,255));vita2d_draw_rectangle(24,88+shown*48,5,38,RGBA8(110,220,255,255));}
+   txt(38,114+shown*48,.76f,b);
+   char sec[96]; snprintf(sec,sizeof(sec),"Section: %.70s",l->section[0]?l->section:"(unknown)");
+   txt_dim(665,114+shown*48,.62f,sec);
   }
-  txt(24,490,.64f,"X Toggle in TEST config   O Back");
  } else {
-  const char*a[]={"Installed Plugins","Plugin Browser","Enable / Disable","Test Config","Save as Working Config","Plugin Order","Quarantine","Custom Repositories","Plugin Logs"};
-  for(int i=0;i<9;i++)row(i,100+i*38,a[i]);
-  txt(510,110,.76f,"NEW PLUGINS: DISABLED BY DEFAULT");
-  txt(510,145,.76f,"Test Config never overwrites Last Working Config.");
-  txt(510,180,.76f,tai_config_path()?"taiHEN config detected.":"taiHEN config not found.");
-  txt(510,215,.76f,exists(TAI_TEST)?"Test Config: READY":"Test Config: not created");
-  txt(510,250,.76f,exists(TAI_WORK)?"Last Working Config: SAVED":"Last Working Config: not saved");
+  const char*a[]={"Installed Plugins","Plugin Browser","Enable / Disable","Test Config","Save Working Config","Plugin Order","Quarantine","Custom Repositories","Plugin Logs"};
+  for(int i=0;i<9;i++)row(i,112+i*40,a[i]);
+  info_heading("Plugin Safety");
+  info_line(151,"NEW PLUGINS: DISABLED BY DEFAULT");
+  info_line(184,"Changes are made in TEST config first.");
+  info_line(217,"Last Working Config is never auto-overwritten.");
+  info_line(262,tai_config_path()?"taiHEN config: DETECTED":"taiHEN config: NOT FOUND");
+  info_line(292,exists(TAI_TEST)?"Test Config: READY":"Test Config: NOT CREATED");
+  info_line(322,exists(TAI_WORK)?"Last Working: SAVED":"Last Working: NOT SAVED");
  }
 }
 static void draw_recovery(void){
- title("Recovery & Backup");
- const char*a[]={"Save as Working Config","Create Backup","Restore Last Working","View Backups","Safe Mode","Error Logs","Auto Backup [ON]","Auto Save [OFF - LOCKED]"};
- for(int i=0;i<8;i++)row(i,100+i*40,a[i]);
- txt(510,110,.76f,"Auto Save is permanently locked OFF.");
- txt(510,145,.76f,"Crash recovery keeps the previous working config.");
- txt(510,180,.76f,exists(TAI_BACKUP)?"Config Backup: AVAILABLE":"Config Backup: none");
+ title("Recovery & Backup"); panel(18,78,442,414); panel(482,78,460,414);
+ const char*a[]={"SAVE WORKING CONFIG","CREATE BACKUP NOW","Restore Last Working","View Backups","Safe Mode","Error Logs","Auto Backup [ON]","Auto Save [OFF - LOCKED]"};
+ for(int i=0;i<8;i++)row(i,112+i*43,a[i]);
+ info_heading("Recovery Protection");
+ info_line(151,"Auto Save is permanently locked OFF.");
+ info_line(181,"Create a backup before changing taiHEN config.");
+ info_line(226,"A failed TEST should not replace Last Working.");
+ info_line(271,exists(TAI_BACKUP)?"Config Backup: AVAILABLE":"Config Backup: NONE");
 }
 static void draw_update(void){
- title("Update Center");
+ title("Update Center"); panel(18,78,442,414); panel(482,78,460,414);
  const char*a[]={"Check for Updates","App Update","UI Update","Plugin Updates","Plugin Catalog","News","Update History"};
- for(int i=0;i<7;i++)row(i,100+i*42,a[i]);
- txt(510,110,.76f,"Download > SHA-256 Verify > Backup > Apply > Verify");
- txt(510,145,.76f,"No forced app updates. Plugins never auto-enable.");
+ for(int i=0;i<7;i++)row(i,112+i*46,a[i]);
+ info_heading("Verified Update Flow");
+ info_line(151,"Download > Size > SHA-256 > Package Verify");
+ info_line(181,"Backup > Apply / Install > Verify");
+ info_line(226,"No forced app updates.");
+ info_line(256,"Plugins never auto-enable.");
+ info_line(286,"Verification failure stops installation.");
 }
 static void draw_news(void){
- title("News");
+ title("News"); panel(18,78,442,414); panel(482,78,460,414);
  const char*a[]={"NEW - App Updates","NEW - Plugin Releases","Plugin Updates","Fixes","Important Notices","Changelog","Mark All Read"};
- for(int i=0;i<7;i++)row(i,100+i*42,a[i]);
- txt(510,110,.76f,"Changelog: ADDED / CHANGED / FIXED / REMOVED");
+ for(int i=0;i<7;i++)row(i,112+i*46,a[i]);
+ info_heading("News & Changelog");
+ info_line(151,"ADDED / CHANGED / FIXED / REMOVED");
+ info_line(196,"Catalog and news may refresh automatically.");
+ info_line(226,"Installation and activation remain manual.");
 }
 static void draw_settings(void){
- title("Settings");
+ title("Settings"); panel(18,78,442,414); panel(482,78,460,414);
  const char*a[]={"Storage & Backup Paths","SAVE WORKING CONFIG","CREATE BACKUP NOW","HUD Settings","Plugin Settings","Update Settings","Recovery Settings","UI Settings","Controls","Temperature Unit"};
- for(int i=0;i<10;i++)row(i,92+i*34,a[i]);
+ for(int i=0;i<10;i++)row(i,105+i*37,a[i]);
  if(selected==0){
-  txt(475,92,.76f,"STORAGE & BACKUP PATHS");
-  txt(475,122,.60f,"Live: ur0:tai/config.txt");
-  txt(475,146,.60f,"Fallback: ux0:tai/config.txt");
-  txt(475,170,.60f,"Test: ux0:data/VitaAutoPlugin/config.test.txt");
-  txt(475,194,.60f,"Working: ux0:data/VitaAutoPlugin/config.working.txt");
-  txt(475,218,.60f,"Backups: ux0:data/VitaAutoPlugin/backups/");
-  txt(475,242,.60f,"Recovery: ux0:data/VitaAutoPlugin/recovery.log");
-  txt(475,266,.60f,"Settings: ux0:data/VitaAutoPlugin/settings.cfg");
-  txt(475,306,.68f,"PC MANUAL EDITING");
-  txt(475,334,.57f,"1. Copy the file/folder to PC using VitaShell USB/FTP.");
-  txt(475,358,.57f,"2. Edit/copy it, then return it to the SAME path.");
-  txt(475,382,.57f,"3. Create Backup > Test Config > test on Vita.");
-  txt(475,406,.57f,"4. When stable, use SAVE WORKING CONFIG.");
-  txt(475,446,.60f,"Auto Save: OFF (LOCKED)");
+  info_heading("Storage & Backup Paths");
+  info_line(145,"Live: ur0:tai/config.txt");
+  info_line(171,"Fallback: ux0:tai/config.txt");
+  info_line(197,"Test: ux0:data/VitaAutoPlugin/config.test.txt");
+  info_line(223,"Working: ux0:data/VitaAutoPlugin/config.working.txt");
+  info_line(249,"Backups: ux0:data/VitaAutoPlugin/backups/");
+  info_line(275,"Recovery: ux0:data/VitaAutoPlugin/recovery.log");
+  info_line(301,"Settings: ux0:data/VitaAutoPlugin/settings.cfg");
+  txt(505,350,.78f,"PC Manual Editing");
+  info_line(379,"Backup > Test Config > test on Vita > Save Working");
+  info_line(424,"Auto Save: OFF (LOCKED)");
  } else {
-  txt(475,110,.72f,"Backup and saving are intentionally easy to find.");
-  txt(475,145,.72f,"Auto Save stays permanently OFF (locked).");
+  info_heading("Safe Settings");
+  info_line(151,"Backup and working-config actions stay visible.");
+  info_line(181,"Auto Save remains permanently OFF.");
  }
 }
 static void draw_about(void){
- title("About");
- txt(70,135,1.45f,"Vita AutoPlugin");
- txt(70,180,.9f,"Created by MrWrack");
- txt(70,220,.76f,"PS Vita homebrew plugin management and system tools.");
- txt(70,260,.76f,"Version 0.18 install-fix milestone");
- txt(70,315,.72f,"Independent homebrew project.");
+ title("About"); panel(18,78,924,414);
+ txt(55,145,1.55f,"Vita AutoPlugin");
+ txt(55,195,1.12f,"Created by MrWrack");
+ txt(55,242,.82f,"PS Vita homebrew plugin management and system tools.");
+ txt(55,286,.82f,"Version 0.19 - UI & Readability Fix");
+ txt_dim(55,340,.74f,"Independent homebrew project.");
+ txt_dim(55,374,.74f,"New plugins are disabled by default. Auto Save is locked OFF.");
 }
 static int count(void){
  switch(screen){case HOME:return 9;case TROPHY:return 9;case OVERCLOCK:return 8;case MONITOR:return 8;case PLUGINS:return plugin_view?(plugin_count()?plugin_count():1):9;case RECOVERY:return 8;case UPDATE:return 7;case NEWS:return 7;case SETTINGS:return 10;default:return 1;}
