@@ -45,7 +45,7 @@ static int fps_value=0, fps_frames=0;
 static unsigned int fps_tick=0;
 static char operation_status[128]="Ready";
 static char last_backup_name[96]="None";
-static const char *APP_VERSION="v0.31";
+static const char *APP_VERSION="v0.32";
 
 enum IconId { ICO_HOME,ICO_PLUGIN,ICO_TROPHY,ICO_MONITOR,ICO_OVERCLOCK,ICO_RECOVERY,ICO_UPDATE,ICO_NEWS,ICO_SETTINGS,ICO_ABOUT,ICO_GITHUB,ICO_CROWN,ICO_SAVE,ICO_BACKUP,ICO_RESTORE,ICO_WARNING,ICO_CHECK,ICO_STATUS,ICO_COUNT };
 static vita2d_texture *icons[ICO_COUNT]={0};
