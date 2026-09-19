@@ -52,4 +52,22 @@ vita_create_vpk(VitaAutoPlugin.vpk ${VITA_TITLEID} eboot.bin
  ${CMAKE_SOURCE_DIR}/sce_sys/livearea/contents/bg.png sce_sys/livearea/contents/bg.png
  ${CMAKE_SOURCE_DIR}/sce_sys/livearea/contents/startup.png sce_sys/livearea/contents/startup.png
  ${CMAKE_SOURCE_DIR}/sce_sys/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
+ ${CMAKE_SOURCE_DIR}/assets/icons/home.png assets/icons/home.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/plugin.png assets/icons/plugin.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/trophy.png assets/icons/trophy.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/monitor.png assets/icons/monitor.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/overclock.png assets/icons/overclock.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/recovery.png assets/icons/recovery.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/update.png assets/icons/update.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/news.png assets/icons/news.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/settings.png assets/icons/settings.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/about.png assets/icons/about.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/github.png assets/icons/github.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/crown.png assets/icons/crown.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/save.png assets/icons/save.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/backup.png assets/icons/backup.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/restore.png assets/icons/restore.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/warning.png assets/icons/warning.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/check.png assets/icons/check.png
+ ${CMAKE_SOURCE_DIR}/assets/icons/status.png assets/icons/status.png
 )

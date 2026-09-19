@@ -39,7 +39,16 @@ static int test_oc_active=0;
 static vita2d_pgf *ui_font=NULL;
 static int quick_menu=0, trophy_quick_menu=0;
 static char operation_status[128]="Ready";
-static const char *APP_VERSION="v0.21";
+static char last_backup_name[96]="None";
+static const char *APP_VERSION="v0.22";
+
+enum IconId { ICO_HOME,ICO_PLUGIN,ICO_TROPHY,ICO_MONITOR,ICO_OVERCLOCK,ICO_RECOVERY,ICO_UPDATE,ICO_NEWS,ICO_SETTINGS,ICO_ABOUT,ICO_GITHUB,ICO_CROWN,ICO_SAVE,ICO_BACKUP,ICO_RESTORE,ICO_WARNING,ICO_CHECK,ICO_STATUS,ICO_COUNT };
+static vita2d_texture *icons[ICO_COUNT]={0};
+static const char *icon_files[ICO_COUNT]={"home","plugin","trophy","monitor","overclock","recovery","update","news","settings","about","github","crown","save","backup","restore","warning","check","status"};
+static void load_icons(void){ char pth[128]; for(int i=0;i<ICO_COUNT;i++){snprintf(pth,sizeof(pth),"app0:/assets/icons/%s.png",icon_files[i]);icons[i]=vita2d_load_PNG_file(pth);} }
+static void free_icons(void){for(int i=0;i<ICO_COUNT;i++){if(icons[i]){vita2d_free_texture(icons[i]);icons[i]=NULL;}}}
+static void draw_icon(int id,float x,float y,float scale){if(id>=0&&id<ICO_COUNT&&icons[id])vita2d_draw_texture_scale(icons[id],x,y,scale,scale);}
+
 
 static const char *home_items[]={
  "Plugin Manager","Trophy Unlocker","System Monitor","Overclock",
@@ -103,33 +112,52 @@ static int create_test_config(void){
  if(!copy_file(src,TAI_TEST))return 0;
  return 1;
 }
+static void txt(float x,float y,float scale,const char*t);
+static void txt_dim(float x,float y,float scale,const char*t);
+static long file_size(const char *path){
+ FILE*f=fopen(path,"rb"); if(!f)return -1; if(fseek(f,0,SEEK_END)!=0){fclose(f);return -1;} long n=ftell(f); fclose(f); return n;
+}
+static void progress_frame(const char *title_text,const char *stage,int percent){
+ if(percent<0)percent=0; if(percent>100)percent=100;
+ vita2d_start_drawing(); vita2d_clear_screen();
+ vita2d_draw_rectangle(0,0,960,544,RGBA8(6,18,36,255));
+ vita2d_draw_rectangle(120,150,720,244,RGBA8(7,25,45,250));
+ vita2d_draw_rectangle(120,150,720,4,RGBA8(75,196,255,255));
+ draw_icon(ICO_BACKUP,150,178,.95f);
+ txt(205,210,1.08f,title_text); txt_dim(205,242,.70f,stage);
+ vita2d_draw_rectangle(165,286,630,34,RGBA8(3,14,27,255));
+ vita2d_draw_rectangle(169,290,(622.0f*percent)/100.0f,26,RGBA8(22,151,224,255));
+ char b[32]; snprintf(b,sizeof(b),"%d%%",percent); txt(450,355,.95f,b);
+ vita2d_end_drawing(); vita2d_swap_buffers();
+}
+static int copy_file_progress(const char *src,const char *dst,const char *label,int base,int span){
+ FILE*a=fopen(src,"rb"); if(!a)return 0; FILE*b=fopen(dst,"wb"); if(!b){fclose(a);return 0;}
+ if(fseek(a,0,SEEK_END)!=0){fclose(a);fclose(b);return 0;} long total=ftell(a); rewind(a);
+ char buf[2048]; size_t n; long done=0; int ok=1; progress_frame(label,"Preparing...",base);
+ while((n=fread(buf,1,sizeof(buf),a))>0){ if(fwrite(buf,1,n,b)!=n){ok=0;break;} done+=(long)n; int pc=base+(total>0?(int)((done*span)/total):span); progress_frame(label,"Writing and verifying data...",pc); }
+ fclose(a); fclose(b); if(!ok)return 0;
+ if(file_size(src)!=file_size(dst))return 0; progress_frame(label,"Verified",base+span); return 1;
+}
 static int save_working_config(void){
- const char *src=exists(TAI_TEST)?TAI_TEST:tai_config_path();
- if(!src) return 0;
- mkdirs();
- if(!copy_file(src,TAI_WORK))return 0;
- /* Keep a separate snapshot too; this never happens automatically. */
- copy_file(src,TAI_BACKUP);
- return 1;
+ const char *src=exists(TAI_TEST)?TAI_TEST:tai_config_path(); if(!src)return 0; mkdirs();
+ if(!copy_file_progress(src,TAI_WORK,"Save Working Config",0,78))return 0;
+ if(!copy_file_progress(src,TAI_BACKUP,"Save Working Config",78,22))return 0;
+ progress_frame("Save Working Config","SAVE COMPLETE",100); sceKernelDelayThread(450000); return 1;
 }
 static int restore_working_config(void){
- const char *live=tai_config_path();
- if(!live || !exists(TAI_WORK))return 0;
- /* Backup current live config before manual restore. */
- copy_file(live,TAI_BACKUP);
- return copy_file(TAI_WORK,live);
+ const char *live=tai_config_path(); if(!live||!exists(TAI_WORK))return 0; mkdirs();
+ if(!copy_file_progress(live,TAI_BACKUP,"Restore Last Working",0,35))return 0;
+ if(!copy_file_progress(TAI_WORK,live,"Restore Last Working",35,65))return 0;
+ progress_frame("Restore Last Working","RESTORE COMPLETE",100); sceKernelDelayThread(450000); return 1;
 }
 static int create_config_backup(void){
- const char *src=tai_config_path(); if(!src)return 0;
- mkdirs();
- /* Keep the legacy latest-backup path and an additional numbered snapshot. */
- if(!copy_file(src,TAI_BACKUP)) return 0;
- char path[160];
- for(int i=1;i<=9999;i++){
-  snprintf(path,sizeof(path),BACKUP_DIR "/config.backup.%04d.txt",i);
-  if(!exists(path)) return copy_file(src,path);
- }
- return 0;
+ const char *src=tai_config_path(); if(!src)return 0; mkdirs();
+ if(!copy_file_progress(src,TAI_BACKUP,"Create Backup",0,50))return 0;
+ char path[160]; for(int i=1;i<=9999;i++){ snprintf(path,sizeof(path),BACKUP_DIR "/config.backup.%04d.txt",i); if(!exists(path)){
+   if(!copy_file_progress(src,path,"Create Backup",50,50))return 0;
+   snprintf(last_backup_name,sizeof(last_backup_name),"config.backup.%04d.txt",i);
+   progress_frame("Create Backup","BACKUP COMPLETE",100); sceKernelDelayThread(450000); return 1;
+ }} return 0;
 }
 
 static void log_recovery(const char *msg){
@@ -192,25 +220,8 @@ static void panel(float x,float y,float w,float h){
  vita2d_draw_rectangle(x,y,w,2,RGBA8(20,112,176,255));
  vita2d_draw_rectangle(x,y,2,h,RGBA8(13,72,119,255));
 }
-static void github_mark(float x,float y,float sc){
- /* Small vector GitHub-style cat mark: no external texture required. */
- unsigned int c=RGBA8(245,250,255,255);
- vita2d_draw_rectangle(x+4*sc,y+6*sc,24*sc,20*sc,c);
- vita2d_draw_rectangle(x+7*sc,y+2*sc,6*sc,8*sc,c);
- vita2d_draw_rectangle(x+20*sc,y+2*sc,6*sc,8*sc,c);
- vita2d_draw_rectangle(x+1*sc,y+14*sc,7*sc,6*sc,c);
- vita2d_draw_rectangle(x+25*sc,y+14*sc,7*sc,6*sc,c);
- vita2d_draw_rectangle(x+13*sc,y+24*sc,7*sc,9*sc,c);
-}
-static void crown_mark(float x,float y,float sc){
- /* Crisp pixel/vector crown sized for the Vita screen. */
- unsigned int c=RGBA8(255,214,64,255);
- vita2d_draw_rectangle(x,y+10*sc,30*sc,10*sc,c);
- vita2d_draw_rectangle(x+2*sc,y+4*sc,5*sc,9*sc,c);
- vita2d_draw_rectangle(x+12*sc,y,6*sc,13*sc,c);
- vita2d_draw_rectangle(x+23*sc,y+4*sc,5*sc,9*sc,c);
- vita2d_draw_rectangle(x+2*sc,y+22*sc,26*sc,4*sc,c);
-}
+static void github_mark(float x,float y,float sc){ draw_icon(ICO_GITHUB,x,y,sc*.80f); }
+static void crown_mark(float x,float y,float sc){ draw_icon(ICO_CROWN,x,y,sc*.92f); }
 static void brand(float x,float y,float scale){
  github_mark(x,y-25*scale,scale);
  txt_dim(x+39*scale,y-11*scale,.52f*scale,"Made by");
@@ -247,8 +258,9 @@ static void footer(void){
 static void info_heading(const char*t){txt(505,112,.94f,t);}
 static void info_line(float y,const char*t){txt_dim(505,y,.70f,t);}
 static void nav_item(int i,float y,const char *tag,const char *label){
+ static const int ids[9]={ICO_PLUGIN,ICO_TROPHY,ICO_MONITOR,ICO_OVERCLOCK,ICO_RECOVERY,ICO_UPDATE,ICO_NEWS,ICO_SETTINGS,ICO_ABOUT};
  if(i==selected){vita2d_draw_rectangle(12,y-26,278,38,RGBA8(10,105,174,255));vita2d_draw_rectangle(12,y-26,5,38,RGBA8(100,225,255,255));}
- badge(24,y-29,tag); txt(70,y,.79f,label);
+ if(i>=0&&i<9&&icons[ids[i]]) draw_icon(ids[i],25,y-27,.72f); else badge(24,y-29,tag); txt(70,y,.79f,label);
 }
 static void small_status(float x,float y,const char *name,const char *value){
  txt_dim(x,y,.64f,name); txt(x+190,y,.64f,value);
@@ -256,7 +268,8 @@ static void small_status(float x,float y,const char *name,const char *value){
 static void action_button(float x,float y,const char *tag,const char *label){
  vita2d_draw_rectangle(x,y,278,34,RGBA8(9,35,61,255));
  vita2d_draw_rectangle(x,y,3,34,RGBA8(15,117,184,255));
- txt(x+13,y+23,.65f,tag); txt(x+45,y+23,.66f,label);
+ int id=-1; if(!strcmp(tag,"P"))id=ICO_PLUGIN; else if(!strcmp(tag,"T"))id=ICO_TROPHY; else if(!strcmp(tag,"R"))id=ICO_RECOVERY; else if(!strcmp(tag,"S"))id=ICO_SAVE; else if(!strcmp(tag,"B"))id=ICO_BACKUP;
+ if(id>=0&&icons[id])draw_icon(id,x+9,y+3,.68f); else txt(x+13,y+23,.65f,tag); txt(x+45,y+23,.66f,label);
 }
 
 static void draw_home(void){
@@ -293,7 +306,7 @@ static void draw_home(void){
  txt(644,372,.78f,"Recovery & Backup");
  action_button(644,384,"S","Save Working Config");
  action_button(644,422,"B","Create Backup Now");
- txt_dim(644,468,.58f,operation_status);
+ txt_dim(644,458,.58f,operation_status); char lb[128]; snprintf(lb,sizeof(lb),"Last Backup: %s",last_backup_name); txt_dim(644,478,.54f,lb);
 }
 static void draw_trophy(void){
  title("Trophy Unlocker"); panel(18,78,442,414); panel(482,78,460,414);
@@ -382,7 +395,7 @@ static void draw_recovery(void){
  info_line(181,"Create a backup before changing taiHEN config.");
  info_line(226,"A failed TEST should not replace Last Working.");
  info_line(271,exists(TAI_BACKUP)?"Config Backup: AVAILABLE":"Config Backup: NONE");
- info_line(315,operation_status);
+ info_line(315,operation_status); char lb[128]; snprintf(lb,sizeof(lb),"Last Backup: %s",last_backup_name); info_line(345,lb);
 }
 static void draw_update(void){
  title("Update Center"); panel(18,78,442,414); panel(482,78,460,414);
@@ -431,7 +444,7 @@ static void draw_about(void){
  txt(55,145,1.55f,"Vita AutoPlugin");
  brand(55,205,1.20f);
  txt(55,242,.82f,"PS Vita homebrew plugin management and system tools.");
- txt(55,286,.82f,"Version 0.21 - Full UI Rebuild");
+ txt(55,286,.82f,"Version 0.22 - Progress, Icons & Quick Menu Prep");
  txt_dim(55,340,.74f,"Independent homebrew project.");
  txt_dim(55,374,.74f,"New plugins are disabled by default. Auto Save is locked OFF.");
 }
@@ -528,7 +541,7 @@ static void draw_quick_overlay(void){
 int main(void){
  sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG); load(); startup_recovery();
  vita2d_init(); vita2d_set_clear_color(RGBA8(6,18,36,255));
- ui_font=ui_font_load();
+ ui_font=ui_font_load(); load_icons();
  if(!ui_font){ vita2d_fini(); sceKernelExitProcess(-1); return -1; }
  SceCtrlData p,o; memset(&o,0,sizeof(o));
  while(running){
@@ -553,5 +566,5 @@ int main(void){
   footer(); if(quick_menu||trophy_quick_menu)draw_quick_overlay(); vita2d_end_drawing(); vita2d_swap_buffers();
   o=p; sceKernelDelayThread(16000);
  }
- mark_clean_exit(); ui_font_free(ui_font); ui_font=NULL; vita2d_fini(); sceKernelExitProcess(0); return 0;
+ mark_clean_exit(); free_icons(); ui_font_free(ui_font); ui_font=NULL; vita2d_fini(); sceKernelExitProcess(0); return 0;
 }
