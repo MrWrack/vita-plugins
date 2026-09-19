@@ -223,8 +223,8 @@ static void panel(float x,float y,float w,float h){
  vita2d_draw_rectangle(x,y,w,2,RGBA8(20,112,176,255));
  vita2d_draw_rectangle(x,y,2,h,RGBA8(13,72,119,255));
 }
-static void github_mark(float x,float y,float sc){ draw_icon(ICO_GITHUB,x,y,sc*.80f); }
-static void crown_mark(float x,float y,float sc){ draw_icon(ICO_CROWN,x,y,sc*.92f); }
+static void github_mark(float x,float y,float sc){ draw_icon(ICO_GITHUB,x,y,sc*.25f); }
+static void crown_mark(float x,float y,float sc){ draw_icon(ICO_CROWN,x,y,sc*.29f); }
 static void brand(float x,float y,float scale){
  github_mark(x,y-25*scale,scale);
  txt_dim(x+39*scale,y-11*scale,.52f*scale,"Made by");
@@ -263,7 +263,7 @@ static void info_line(float y,const char*t){txt_dim(505,y,.70f,t);}
 static void nav_item(int i,float y,const char *tag,const char *label){
  static const int ids[9]={ICO_PLUGIN,ICO_TROPHY,ICO_MONITOR,ICO_OVERCLOCK,ICO_RECOVERY,ICO_UPDATE,ICO_NEWS,ICO_SETTINGS,ICO_ABOUT};
  if(i==selected){vita2d_draw_rectangle(12,y-26,278,38,RGBA8(10,105,174,255));vita2d_draw_rectangle(12,y-26,5,38,RGBA8(100,225,255,255));}
- if(i>=0&&i<9&&icons[ids[i]]) draw_icon(ids[i],25,y-27,.72f); else badge(24,y-29,tag); txt(70,y,.79f,label);
+ if(i>=0&&i<9&&icons[ids[i]]) draw_icon(ids[i],25,y-27,.225f); else badge(24,y-29,tag); txt(70,y,.79f,label);
 }
 static void small_status(float x,float y,const char *name,const char *value){
  txt_dim(x,y,.64f,name); txt(x+190,y,.64f,value);
@@ -272,7 +272,7 @@ static void action_button(float x,float y,const char *tag,const char *label){
  vita2d_draw_rectangle(x,y,278,34,RGBA8(9,35,61,255));
  vita2d_draw_rectangle(x,y,3,34,RGBA8(15,117,184,255));
  int id=-1; if(!strcmp(tag,"P"))id=ICO_PLUGIN; else if(!strcmp(tag,"T"))id=ICO_TROPHY; else if(!strcmp(tag,"R"))id=ICO_RECOVERY; else if(!strcmp(tag,"S"))id=ICO_SAVE; else if(!strcmp(tag,"B"))id=ICO_BACKUP;
- if(id>=0&&icons[id])draw_icon(id,x+9,y+3,.68f); else txt(x+13,y+23,.65f,tag); txt(x+45,y+23,.66f,label);
+ if(id>=0&&icons[id])draw_icon(id,x+9,y+3,.2125f); else txt(x+13,y+23,.65f,tag); txt(x+45,y+23,.66f,label);
 }
 
 static void draw_home(void){
