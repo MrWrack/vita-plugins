@@ -1,0 +1,25 @@
+name: Build Vita AutoPlugin
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: vitasdk/vitasdk:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install vita2d
+        run: vdpm vita2d
+      - name: Build
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          cmake --build . -- -j2 2>&1 | tee build.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VitaAutoPlugin-VPK
+          path: |
+            build/VitaAutoPlugin.vpk
+            build/build.log
