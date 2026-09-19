@@ -4,7 +4,7 @@
 #include <string.h>
 
 /*
- Vita AutoPlugin Background Alpha
+ Vita AutoPlugin Background v0.26
  --------------------------------
  This module only establishes persistent hotkey state in a taiHEN-loaded
  process. Rendering hooks and verified telemetry are deliberately NOT claimed
@@ -29,11 +29,7 @@ static int worker(SceSize argc, void *argp){
    }
    if(!chord) g_quick_latched=0;
 
-   /* Emergency/hard close: Circle always wins while the menu is open. */
-   if(g_menu_open && (now.buttons&SCE_CTRL_CIRCLE)){
-    g_menu_open=0;
-    g_quick_latched=1; /* cannot reopen until R+Up is released */
-   }
+   /* Normal Quick Menu is toggled only by R + D-pad Up. */
    old=now;
   }
   sceKernelDelayThread(16000);

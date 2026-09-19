@@ -39,9 +39,12 @@ static int test_oc_active=0;
 static vita2d_pgf *ui_font=NULL;
 static int quick_menu=0, trophy_quick_menu=0;
 static int quick_hotkey_latched=0, trophy_hotkey_latched=0;
+static int quick_selected=0;
+static int fps_value=0, fps_frames=0;
+static unsigned int fps_tick=0;
 static char operation_status[128]="Ready";
 static char last_backup_name[96]="None";
-static const char *APP_VERSION="v0.22";
+static const char *APP_VERSION="v0.26";
 
 enum IconId { ICO_HOME,ICO_PLUGIN,ICO_TROPHY,ICO_MONITOR,ICO_OVERCLOCK,ICO_RECOVERY,ICO_UPDATE,ICO_NEWS,ICO_SETTINGS,ICO_ABOUT,ICO_GITHUB,ICO_CROWN,ICO_SAVE,ICO_BACKUP,ICO_RESTORE,ICO_WARNING,ICO_CHECK,ICO_STATUS,ICO_COUNT };
 static vita2d_texture *icons[ICO_COUNT]={0};
@@ -121,7 +124,8 @@ static long file_size(const char *path){
 static void progress_frame(const char *title_text,const char *stage,int percent){
  if(percent < 0) percent = 0;
  if(percent > 100) percent = 100;
- vita2d_start_drawing(); vita2d_clear_screen();
+ update_fps_counter();
+  vita2d_start_drawing(); vita2d_clear_screen();
  vita2d_draw_rectangle(0,0,960,544,RGBA8(6,18,36,255));
  vita2d_draw_rectangle(120,150,720,244,RGBA8(7,25,45,250));
  vita2d_draw_rectangle(120,150,720,4,RGBA8(75,196,255,255));
@@ -330,6 +334,23 @@ static void draw_trophy(void){
  info_line(330,"and backup handling are fully implemented.");
  info_line(375,(s.trophy_hunter && s.trophy_unlocker)?"L + SELECT Quick Menu: READY":"L + SELECT Quick Menu: DISABLED");
 }
+static void apply_overclock_hw(void){
+ if(!oc_enabled){
+  scePowerSetArmClockFrequency(333);
+  scePowerSetGpuClockFrequency(166);
+  return;
+ }
+ scePowerSetArmClockFrequency(oc_cpu?444:333);
+ scePowerSetGpuClockFrequency(oc_gpu?222:166);
+}
+static void update_fps_counter(void){
+ unsigned int now=(unsigned int)sceKernelGetProcessTimeLow();
+ fps_frames++;
+ if(!fps_tick) fps_tick=now;
+ if((unsigned int)(now-fps_tick)>=1000000u){
+  fps_value=fps_frames; fps_frames=0; fps_tick=now;
+ }
+}
 static void draw_overclock(void){
  title("Overclock"); panel(18,78,442,414); panel(482,78,460,414);
  char a0[48],a1[48],a2[48];
@@ -345,7 +366,7 @@ static void draw_overclock(void){
  info_line(256,"Higher clocks can increase heat, battery use,");
  info_line(283,"instability, crashes and hardware stress.");
  if(recovery_notice) info_line(335,"RECOVERY: prior TEST profile was discarded.");
- info_line(390,"Hardware clock writes are not enabled yet.");
+ char hw[96]; snprintf(hw,sizeof(hw),"Current CPU %d MHz / GPU %d MHz",scePowerGetArmClockFrequency(),scePowerGetGpuClockFrequency()); info_line(390,hw);
 }
 static void draw_monitor(void){
  title("System Monitor"); panel(18,78,442,414); panel(482,78,460,414);
@@ -511,13 +532,13 @@ static void action(void){
      are implemented. This avoids unsafe placeholder writes. */
  }
  if(screen==OVERCLOCK){
-  if(selected==0){oc_enabled=!oc_enabled; save_test_oc();}
-  else if(selected==1){oc_cpu=!oc_cpu; save_test_oc();}
-  else if(selected==2){oc_gpu=!oc_gpu; save_test_oc();}
+  if(selected==0){oc_enabled=!oc_enabled; apply_overclock_hw(); save_test_oc();}
+  else if(selected==1){oc_cpu=!oc_cpu; apply_overclock_hw(); save_test_oc();}
+  else if(selected==2){oc_gpu=!oc_gpu; apply_overclock_hw(); save_test_oc();}
   else if(selected==3){save_test_oc();}
   else if(selected==4){save_working_oc();}
   else if(selected==5){restore_working_oc();}
-  else if(selected==6){oc_enabled=0;oc_cpu=0;oc_gpu=0;sceIoRemove(TEST_OC);test_oc_active=0;}
+  else if(selected==6){oc_enabled=0;oc_cpu=0;oc_gpu=0;apply_overclock_hw();sceIoRemove(TEST_OC);test_oc_active=0;}
   /* This milestone persists TEST/WORKING profiles and recovery state but still
      does not write hardware clocks. Actual clock writes come only after the
      complete validation + rollback path is tested on-device. */
@@ -533,16 +554,21 @@ static void draw_quick_overlay(void){
   txt(x,y+52,.62f,s.trophy_unlocker?"Unlocker ON":"Unlocker OFF");
   txt_dim(x,y+82,.56f,"O Close");
  }else{
-  /* Compact requested HUD: FPS / CPU / GPU / MEM / TEMP only.
-     Values remain placeholders here until the background plugin has verified
-     runtime telemetry sources; do not fabricate measurements. */
-  vita2d_draw_rectangle(x-12,y-22,244,122,RGBA8(4,20,38,150));
+  vita2d_draw_rectangle(x-12,y-22,244,190,RGBA8(4,20,38,150));
   txt(x,y,.70f,"Quick Menu");
-  txt_dim(x,y+28,.58f,"FPS   --");
-  txt_dim(x,y+46,.58f,"CPU   --");
-  txt_dim(x,y+64,.58f,"GPU   --");
-  txt_dim(x,y+82,.58f,"MEM   --");
-  txt_dim(x+112,y+82,.58f,"TEMP  --");
+  char v[96];
+  const char *items[]={"HUD","FPS","CPU","GPU","MEM","BAT","TEMP"};
+  for(int i=0;i<7;i++){
+   if(i==quick_selected) vita2d_draw_rectangle(x-7,y+14+i*20,232,19,RGBA8(12,116,183,150));
+   if(i==0) snprintf(v,sizeof(v),"HUD   %s",s.hud?"ON":"OFF");
+   else if(i==1) snprintf(v,sizeof(v),"FPS   %d",fps_value);
+   else if(i==2) snprintf(v,sizeof(v),"CPU   %d MHz",scePowerGetArmClockFrequency());
+   else if(i==3) snprintf(v,sizeof(v),"GPU   %d MHz",scePowerGetGpuClockFrequency());
+   else if(i==5) snprintf(v,sizeof(v),"BAT   %d%%",scePowerGetBatteryLifePercent());
+   else if(i==4) snprintf(v,sizeof(v),"MEM   N/A");
+   else snprintf(v,sizeof(v),"TEMP  N/A");
+   txt_dim(x,y+29+i*20,.55f,v);
+  }
  }
 }
 
@@ -576,10 +602,16 @@ int main(void){
   }
   if(!trophy_chord) trophy_hotkey_latched=0;
 
-  if((quick_menu||trophy_quick_menu) && (p.buttons&SCE_CTRL_CIRCLE)){
-   quick_menu=0;
-   trophy_quick_menu=0;
-   q&=~SCE_CTRL_CIRCLE;
+  /* Normal Quick Menu closes ONLY with R+Up. Circle no longer closes it. */
+  if(trophy_quick_menu && (q&SCE_CTRL_CIRCLE)){ trophy_quick_menu=0; q&=~SCE_CTRL_CIRCLE; }
+  if(quick_menu){
+   if(!quick_chord && (q&SCE_CTRL_UP)) quick_selected=(quick_selected+6)%7;
+   if(q&SCE_CTRL_DOWN) quick_selected=(quick_selected+1)%7;
+   if(q&SCE_CTRL_CROSS){
+    int *toggles[]={&s.hud,&s.fps,&s.cpu,&s.gpu,&s.ram,&s.battery,&s.temp};
+    *toggles[quick_selected]=!*toggles[quick_selected]; save();
+   }
+   q &= ~(SCE_CTRL_UP|SCE_CTRL_DOWN|SCE_CTRL_CROSS);
   }
   if(!(quick_menu||trophy_quick_menu) && (q&SCE_CTRL_UP)) selected=(selected+n-1)%n;
   if(!(quick_menu||trophy_quick_menu) && (q&SCE_CTRL_DOWN)) selected=(selected+1)%n;
@@ -592,6 +624,7 @@ int main(void){
   }
   if(screen==MONITOR && selected==7 && (q&SCE_CTRL_LEFT)){s.fahrenheit=0;save();}
   if(screen==MONITOR && selected==7 && (q&SCE_CTRL_RIGHT)){s.fahrenheit=1;save();}
+  update_fps_counter();
   vita2d_start_drawing(); vita2d_clear_screen();
   switch(screen){case HOME:draw_home();break;case TROPHY:draw_trophy();break;case OVERCLOCK:draw_overclock();break;case MONITOR:draw_monitor();break;case PLUGINS:draw_plugins();break;case RECOVERY:draw_recovery();break;case UPDATE:draw_update();break;case NEWS:draw_news();break;case SETTINGS:draw_settings();break;case ABOUT:draw_about();break;}
   footer(); if(quick_menu||trophy_quick_menu)draw_quick_overlay(); vita2d_end_drawing(); vita2d_swap_buffers();
