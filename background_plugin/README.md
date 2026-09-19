@@ -1,23 +1,20 @@
-# Vita AutoPlugin Background Alpha
+# Vita AutoPlugin Background v0.31
 
-This is the first background-plugin build stage.
+This component is the taiHEN background module. The hotkey is **R + D-pad Up** and is state-only/passive: it never consumes D-pad, face buttons, sticks, or touch.
 
-Target behavior:
-- load on SceShell/Home and supported apps through taiHEN;
-- R + D-pad Up toggles Quick Menu state;
-- Circle always closes;
-- later overlay: FPS | CPU | GPU | MEM | TEMP in the upper-right.
+## Important current limitation
 
-## Important
-This alpha does **not** yet draw the overlay outside the VPK. It establishes
-the persistent taiHEN module and input-state logic first. Display/GXM hooks and
-verified telemetry must be added and tested on real Vita hardware before they
-are marked working.
+The module in this package does **not yet render the HUD globally**. A controller polling thread alone cannot draw over SceShell/games. Global rendering needs a validated Shell/kernel overlay implementation. The VPK HUD is therefore still app-local in v0.31.
 
-Suggested taiHEN layout after the .suprx is hardware-tested:
+A proven PS Vita design uses a kernel plugin plus a `*main` Shell plugin; PSVshellPlus uses this split for its global GPU HUD, memory and FPS tracking. Vita AutoPlugin will need an equivalent validated renderer before global HUD is marked complete.
 
-    *main
-    ur0:tai/VitaAutoPluginBackground.suprx
+## Intended taiHEN layout once renderer is implemented
 
-For games/apps, loading policy needs compatibility testing before automatically
-adding a broad `*ALL` entry.
+```text
+*KERNEL
+ur0:tai/VitaAutoPlugin_Kernel.skprx
+*main
+ur0:tai/VitaAutoPlugin_Shell.suprx
+```
+
+Reboot after changing `ur0:tai/config.txt`.

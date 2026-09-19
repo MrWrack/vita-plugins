@@ -4,7 +4,7 @@
 #include <string.h>
 
 /*
- Vita AutoPlugin Background v0.26
+ Vita AutoPlugin Background v0.31
  --------------------------------
  This module only establishes persistent hotkey state in a taiHEN-loaded
  process. Rendering hooks and verified telemetry are deliberately NOT claimed

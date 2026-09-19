@@ -1,5 +1,6 @@
 #include <psp2/ctrl.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/sysmem.h>
 #include <psp2/power.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
@@ -44,7 +45,7 @@ static int fps_value=0, fps_frames=0;
 static unsigned int fps_tick=0;
 static char operation_status[128]="Ready";
 static char last_backup_name[96]="None";
-static const char *APP_VERSION="v0.30";
+static const char *APP_VERSION="v0.31";
 
 enum IconId { ICO_HOME,ICO_PLUGIN,ICO_TROPHY,ICO_MONITOR,ICO_OVERCLOCK,ICO_RECOVERY,ICO_UPDATE,ICO_NEWS,ICO_SETTINGS,ICO_ABOUT,ICO_GITHUB,ICO_CROWN,ICO_SAVE,ICO_BACKUP,ICO_RESTORE,ICO_WARNING,ICO_CHECK,ICO_STATUS,ICO_COUNT };
 static vita2d_texture *icons[ICO_COUNT]={0};
@@ -567,7 +568,12 @@ static void draw_quick_overlay(void){
    else if(i==2) snprintf(v,sizeof(v),"CPU   %d MHz",scePowerGetArmClockFrequency());
    else if(i==3) snprintf(v,sizeof(v),"GPU   %d MHz",scePowerGetGpuClockFrequency());
    else if(i==5) snprintf(v,sizeof(v),"BAT   %d%%",scePowerGetBatteryLifePercent());
-   else if(i==4) snprintf(v,sizeof(v),"MEM   N/A");
+   else if(i==4){
+    SceKernelFreeMemorySizeInfo mi; memset(&mi,0,sizeof(mi)); mi.size=sizeof(mi);
+    if(sceKernelGetFreeMemorySize(&mi)>=0 && mi.size_user>=0)
+     snprintf(v,sizeof(v),"MEM   %.1f MB FREE",mi.size_user/(1024.0f*1024.0f));
+    else snprintf(v,sizeof(v),"MEM   N/A");
+   }
    else if(temp_valid) snprintf(v,sizeof(v),"TEMP  %.1f C",temp_raw/100.0f);
    else snprintf(v,sizeof(v),"TEMP  N/A");
    txt_dim(x,y+29+i*20,.55f,v);
