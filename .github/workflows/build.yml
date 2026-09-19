@@ -21,11 +21,20 @@ jobs:
           cmake ..
           cmake --build . -- -j2 2>&1 | tee build.log
 
-      - name: Upload VPK and build log
+      - name: Build background plugin alpha
+        run: |
+          mkdir -p background_plugin/build
+          cd background_plugin/build
+          cmake ..
+          cmake --build . -- -j2 2>&1 | tee plugin-build.log
+
+      - name: Upload VPK, background plugin and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: VitaAutoPlugin-VPK
+          name: VitaAutoPlugin-v0.24
           path: |
             build/VitaAutoPlugin.vpk
             build/build.log
+            background_plugin/build/VitaAutoPluginBackground.suprx
+            background_plugin/build/plugin-build.log
