@@ -44,7 +44,7 @@ static int fps_value=0, fps_frames=0;
 static unsigned int fps_tick=0;
 static char operation_status[128]="Ready";
 static char last_backup_name[96]="None";
-static const char *APP_VERSION="v0.29";
+static const char *APP_VERSION="v0.30";
 
 enum IconId { ICO_HOME,ICO_PLUGIN,ICO_TROPHY,ICO_MONITOR,ICO_OVERCLOCK,ICO_RECOVERY,ICO_UPDATE,ICO_NEWS,ICO_SETTINGS,ICO_ABOUT,ICO_GITHUB,ICO_CROWN,ICO_SAVE,ICO_BACKUP,ICO_RESTORE,ICO_WARNING,ICO_CHECK,ICO_STATUS,ICO_COUNT };
 static vita2d_texture *icons[ICO_COUNT]={0};
@@ -557,14 +557,18 @@ static void draw_quick_overlay(void){
   vita2d_draw_rectangle(x-12,y-22,244,190,RGBA8(4,20,38,150));
   txt(x,y,.70f,"Quick Menu");
   char v[96];
+  /* Status-only HUD: there is deliberately no selection/highlight and no
+     navigation. Controller input continues to the app normally. */
+  int temp_raw=scePowerGetBatteryTemp();
+  int temp_valid=(temp_raw>=0 && temp_raw<=10000);
   for(int i=0;i<7;i++){
-   if(i==quick_selected) vita2d_draw_rectangle(x-7,y+14+i*20,232,19,RGBA8(12,116,183,150));
    if(i==0) snprintf(v,sizeof(v),"HUD   %s",s.hud?"ON":"OFF");
    else if(i==1) snprintf(v,sizeof(v),"FPS   %d",fps_value);
    else if(i==2) snprintf(v,sizeof(v),"CPU   %d MHz",scePowerGetArmClockFrequency());
    else if(i==3) snprintf(v,sizeof(v),"GPU   %d MHz",scePowerGetGpuClockFrequency());
    else if(i==5) snprintf(v,sizeof(v),"BAT   %d%%",scePowerGetBatteryLifePercent());
    else if(i==4) snprintf(v,sizeof(v),"MEM   N/A");
+   else if(temp_valid) snprintf(v,sizeof(v),"TEMP  %.1f C",temp_raw/100.0f);
    else snprintf(v,sizeof(v),"TEMP  N/A");
    txt_dim(x,y+29+i*20,.55f,v);
   }
@@ -603,19 +607,12 @@ int main(void){
 
   /* Normal Quick Menu closes ONLY with R+Up. Circle no longer closes it. */
   if(trophy_quick_menu && (q&SCE_CTRL_CIRCLE)){ trophy_quick_menu=0; q&=~SCE_CTRL_CIRCLE; }
-  if(quick_menu){
-   if(!quick_chord && (q&SCE_CTRL_UP)) quick_selected=(quick_selected+6)%7;
-   if(q&SCE_CTRL_DOWN) quick_selected=(quick_selected+1)%7;
-   if(q&SCE_CTRL_CROSS){
-    int *toggles[]={&s.hud,&s.fps,&s.cpu,&s.gpu,&s.ram,&s.battery,&s.temp};
-    *toggles[quick_selected]=!*toggles[quick_selected]; save();
-   }
-   q &= ~(SCE_CTRL_UP|SCE_CTRL_DOWN|SCE_CTRL_CROSS);
-  }
-  if(!(quick_menu||trophy_quick_menu) && (q&SCE_CTRL_UP)) selected=(selected+n-1)%n;
-  if(!(quick_menu||trophy_quick_menu) && (q&SCE_CTRL_DOWN)) selected=(selected+1)%n;
+  /* Normal Quick Menu is a passive status HUD. It never captures D-pad, X,
+     Circle, sticks or touch. R+Up only toggles its visibility. */
+  if(q&SCE_CTRL_UP) selected=(selected+n-1)%n;
+  if(q&SCE_CTRL_DOWN) selected=(selected+1)%n;
   if(screen==PLUGINS && plugin_view) plugin_cursor=selected;
-  if(!(quick_menu||trophy_quick_menu) && (q&SCE_CTRL_CROSS)) action();
+  if(q&SCE_CTRL_CROSS) action();
   if(q&SCE_CTRL_CIRCLE){
    if(screen==PLUGINS && plugin_view){plugin_view=0;selected=0;}
    else if(screen==HOME)running=0;
