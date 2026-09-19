@@ -118,7 +118,8 @@ static long file_size(const char *path){
  FILE*f=fopen(path,"rb"); if(!f)return -1; if(fseek(f,0,SEEK_END)!=0){fclose(f);return -1;} long n=ftell(f); fclose(f); return n;
 }
 static void progress_frame(const char *title_text,const char *stage,int percent){
- if(percent<0)percent=0; if(percent>100)percent=100;
+ if(percent < 0) percent = 0;
+ if(percent > 100) percent = 100;
  vita2d_start_drawing(); vita2d_clear_screen();
  vita2d_draw_rectangle(0,0,960,544,RGBA8(6,18,36,255));
  vita2d_draw_rectangle(120,150,720,244,RGBA8(7,25,45,250));
@@ -136,7 +137,9 @@ static int copy_file_progress(const char *src,const char *dst,const char *label,
  char buf[2048]; size_t n; long done=0; int ok=1; progress_frame(label,"Preparing...",base);
  while((n=fread(buf,1,sizeof(buf),a))>0){ if(fwrite(buf,1,n,b)!=n){ok=0;break;} done+=(long)n; int pc=base+(total>0?(int)((done*span)/total):span); progress_frame(label,"Writing and verifying data...",pc); }
  fclose(a); fclose(b); if(!ok)return 0;
- if(file_size(src)!=file_size(dst))return 0; progress_frame(label,"Verified",base+span); return 1;
+ if(file_size(src) != file_size(dst)) return 0;
+ progress_frame(label,"Verified",base+span);
+ return 1;
 }
 static int save_working_config(void){
  const char *src=exists(TAI_TEST)?TAI_TEST:tai_config_path(); if(!src)return 0; mkdirs();

@@ -15,6 +15,8 @@ add_executable(${PROJECT_NAME} src/main.c src/tai_config.c src/repository.c src/
 target_compile_options(${PROJECT_NAME} PRIVATE -O2 -Wall)
 target_link_libraries(${PROJECT_NAME}
  vita2d
+ png
+ z
  SceAppMgr_stub
  SceCommonDialog_stub
  SceSysmodule_stub
