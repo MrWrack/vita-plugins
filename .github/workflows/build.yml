@@ -1,3 +1,5 @@
+name: Build VitaAutoPlugin
+
 on:
   workflow_dispatch:
   push:
@@ -11,30 +13,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install libvita2d
+      - name: Install dependencies
         run: vdpm install libvita2d
 
-      - name: Build
+      - name: Build VitaAutoPlugin VPK
+        shell: bash
         run: |
-          mkdir -p build
-          cd build
-          cmake ..
-          cmake --build . -- -j2 2>&1 | tee build.log
+          set -o pipefail
+          rm -rf build
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel 2 2>&1 | tee build/build.log
+          test -s build/VitaAutoPlugin.vpk
+          echo "VPK created:"
+          ls -lh build/VitaAutoPlugin.vpk
 
       - name: Build background plugin alpha
+        continue-on-error: true
+        shell: bash
         run: |
-          mkdir -p background_plugin/build
-          cd background_plugin/build
-          cmake ..
-          cmake --build . -- -j2 2>&1 | tee plugin-build.log
+          set -o pipefail
+          rm -rf background_plugin/build
+          cmake -S background_plugin -B background_plugin/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build background_plugin/build --parallel 2 2>&1 | tee background_plugin/build/plugin-build.log
 
-      - name: Upload VPK, background plugin and logs
-        if: always()
+      - name: Prepare download package
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/VitaAutoPlugin.vpk dist/VitaAutoPlugin-v0.27.vpk
+          cp build/build.log dist/build.log
+          if [ -f background_plugin/build/VitaAutoPluginBackground.suprx ]; then
+            cp background_plugin/build/VitaAutoPluginBackground.suprx dist/
+          fi
+          if [ -f background_plugin/build/plugin-build.log ]; then
+            cp background_plugin/build/plugin-build.log dist/
+          fi
+          ls -lh dist
+
+      - name: Upload VitaAutoPlugin v0.27
         uses: actions/upload-artifact@v4
         with:
-          name: VitaAutoPlugin-v0.24
-          path: |
-            build/VitaAutoPlugin.vpk
-            build/build.log
-            background_plugin/build/VitaAutoPluginBackground.suprx
-            background_plugin/build/plugin-build.log
+          name: VitaAutoPlugin-MrWrack-v0.27
+          path: dist/
+          if-no-files-found: error
