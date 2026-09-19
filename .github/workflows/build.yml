@@ -13,46 +13,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install libvita2d
         run: vdpm install libvita2d
 
-      - name: Build VitaAutoPlugin VPK
-        shell: bash
+      - name: Build
         run: |
-          set -o pipefail
-          rm -rf build
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --parallel 2 2>&1 | tee build/build.log
-          test -s build/VitaAutoPlugin.vpk
-          echo "VPK created:"
-          ls -lh build/VitaAutoPlugin.vpk
+          mkdir -p build
+          cd build
+          cmake ..
+          cmake --build . -- -j2 2>&1 | tee build.log
 
-      - name: Build background plugin alpha
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          rm -rf background_plugin/build
-          cmake -S background_plugin -B background_plugin/build -DCMAKE_BUILD_TYPE=Release
-          cmake --build background_plugin/build --parallel 2 2>&1 | tee background_plugin/build/plugin-build.log
-
-      - name: Prepare download package
-        shell: bash
-        run: |
-          mkdir -p dist
-          cp build/VitaAutoPlugin.vpk dist/VitaAutoPlugin-v0.30.vpk
-          cp build/build.log dist/build.log
-          if [ -f background_plugin/build/VitaAutoPluginBackground.suprx ]; then
-            cp background_plugin/build/VitaAutoPluginBackground.suprx dist/
-          fi
-          if [ -f background_plugin/build/plugin-build.log ]; then
-            cp background_plugin/build/plugin-build.log dist/
-          fi
-          ls -lh dist
-
-      - name: Upload VitaAutoPlugin v0.30
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: VitaAutoPlugin-MrWrack-v0.30
-          path: dist/
-          if-no-files-found: error
+          name: VitaAutoPlugin-VPK
+          path: |
+            build/VitaAutoPlugin.vpk
+            build/build.log
