@@ -2,6 +2,7 @@
 #include <psp2/kernel/processmgr.h>
 #include <psp2/power.h>
 #include <psp2/io/fcntl.h>
+#include <psp2/io/stat.h>
 #include <vita2d.h>
 #include <stdio.h>
 #include <string.h>
@@ -72,14 +73,16 @@ static void load_plugin_test_view(void){
  plugin_cursor=0;
 }
 static int plugin_count(void){
- if(!plugin_cfg_loaded)return 0; int n=0;
+ if(!plugin_cfg_loaded) return 0;
+ int n=0;
  for(int i=0;i<plugin_cfg.count;i++)
   if(plugin_cfg.lines[i].type==TAI_PLUGIN ||
     (plugin_cfg.lines[i].type==TAI_COMMENT && strstr(plugin_cfg.lines[i].text,"# MRWRACK_DISABLED "))) n++;
  return n;
 }
 static TaiLine *plugin_at(int index){
- if(!plugin_cfg_loaded)return NULL; int n=0;
+ if(!plugin_cfg_loaded) return NULL;
+ int n=0;
  for(int i=0;i<plugin_cfg.count;i++){
   TaiLine*l=&plugin_cfg.lines[i];
   if(l->type==TAI_PLUGIN || (l->type==TAI_COMMENT && strstr(l->text,"# MRWRACK_DISABLED "))){
@@ -97,7 +100,8 @@ static int create_test_config(void){
 }
 static int save_working_config(void){
  const char *src=exists(TAI_TEST)?TAI_TEST:tai_config_path();
- if(!src)return 0; mkdirs();
+ if(!src) return 0;
+ mkdirs();
  if(!copy_file(src,TAI_WORK))return 0;
  /* Keep a separate snapshot too; this never happens automatically. */
  copy_file(src,TAI_BACKUP);
@@ -296,7 +300,7 @@ static void draw_about(void){
  txt(70,135,1.45f,"Vita AutoPlugin");
  txt(70,180,.9f,"Created by MrWrack");
  txt(70,220,.76f,"PS Vita homebrew plugin management and system tools.");
- txt(70,260,.76f,"Version 0.16 source milestone");
+ txt(70,260,.76f,"Version 0.17 source milestone");
  txt(70,315,.72f,"Independent homebrew project.");
 }
 static int count(void){
