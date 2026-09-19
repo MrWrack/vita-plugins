@@ -27,8 +27,8 @@ jobs:
           echo "VPK created:"
           ls -lh build/VitaAutoPlugin.vpk
 
-      - name: Build background plugin alpha
-        shell: bash
+      - name: Build background plugin global HUD
+                shell: bash
         run: |
           set -o pipefail
           rm -rf background_plugin/build
@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          cp build/VitaAutoPlugin.vpk dist/VitaAutoPlugin-v0.32.vpk
+          cp build/VitaAutoPlugin.vpk dist/VitaAutoPlugin-v0.33.vpk
           cp build/build.log dist/build.log
           if [ -f background_plugin/build/VitaAutoPluginBackground.suprx ]; then
             cp background_plugin/build/VitaAutoPluginBackground.suprx dist/
@@ -52,9 +52,9 @@ jobs:
           fi
           ls -lh dist
 
-      - name: Upload VitaAutoPlugin v0.32
+      - name: Upload VitaAutoPlugin v0.33
         uses: actions/upload-artifact@v4
         with:
-          name: VitaAutoPlugin-MrWrack-v0.32
+          name: VitaAutoPlugin-MrWrack-v0.33
           path: dist/
           if-no-files-found: error
