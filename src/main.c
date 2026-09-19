@@ -38,6 +38,7 @@ static int plugin_view=0;
 static int test_oc_active=0;
 static vita2d_pgf *ui_font=NULL;
 static int quick_menu=0, trophy_quick_menu=0;
+static int quick_hotkey_latched=0, trophy_hotkey_latched=0;
 static char operation_status[128]="Ready";
 static char last_backup_name[96]="None";
 static const char *APP_VERSION="v0.22";
@@ -447,7 +448,7 @@ static void draw_about(void){
  txt(55,145,1.55f,"Vita AutoPlugin");
  brand(55,205,1.20f);
  txt(55,242,.82f,"PS Vita homebrew plugin management and system tools.");
- txt(55,286,.82f,"Version 0.22 - Progress, Icons & Quick Menu Prep");
+ txt(55,286,.82f,"Version 0.24 - Quick Menu Background Alpha");
  txt_dim(55,340,.74f,"Independent homebrew project.");
  txt_dim(55,374,.74f,"New plugins are disabled by default. Auto Save is locked OFF.");
 }
@@ -523,21 +524,25 @@ static void action(void){
  }
 }
 static void draw_quick_overlay(void){
- vita2d_draw_rectangle(500,82,430,360,RGBA8(4,20,38,245));
- vita2d_draw_rectangle(500,82,430,4,RGBA8(110,220,255,255));
- txt(525,122,1.05f,trophy_quick_menu?"Trophy Quick Menu":"Vita AutoPlugin Quick Menu");
+ /* No full-screen/large opaque background: keep the game/app visible. */
+ const float x=704.0f, y=38.0f;
  if(trophy_quick_menu){
-  txt(525,165,.82f,s.trophy_hunter?"Trophy Hunter [ON]":"Trophy Hunter [OFF]");
-  txt(525,200,.82f,s.trophy_unlocker?"Trophy Unlocker [ON]":"Trophy Unlocker [OFF]");
-  txt_dim(525,244,.72f,"Unlock actions require game/DB verification.");
-  txt_dim(525,275,.72f,"Backup is required before trophy writes.");
-  txt(525,330,.78f,"O  Close Quick Menu");
+  vita2d_draw_rectangle(x-12,y-22,244,142,RGBA8(4,20,38,170));
+  txt(x,y,.70f,"Trophy Quick Menu");
+  txt(x,y+28,.62f,s.trophy_hunter?"Hunter ON":"Hunter OFF");
+  txt(x,y+52,.62f,s.trophy_unlocker?"Unlocker ON":"Unlocker OFF");
+  txt_dim(x,y+82,.56f,"O Close");
  }else{
-  txt(525,165,.82f,"System Monitor / HUD");
-  txt(525,200,.82f,"Overclock Status");
-  txt(525,235,.82f,"Plugin Status");
-  txt(525,270,.82f,"Recovery & Backup");
-  txt(525,330,.78f,"O  Close Quick Menu");
+  /* Compact requested HUD: FPS / CPU / GPU / MEM / TEMP only.
+     Values remain placeholders here until the background plugin has verified
+     runtime telemetry sources; do not fabricate measurements. */
+  vita2d_draw_rectangle(x-12,y-22,244,122,RGBA8(4,20,38,150));
+  txt(x,y,.70f,"Quick Menu");
+  txt_dim(x,y+28,.58f,"FPS   --");
+  txt_dim(x,y+46,.58f,"CPU   --");
+  txt_dim(x,y+64,.58f,"GPU   --");
+  txt_dim(x,y+82,.58f,"MEM   --");
+  txt_dim(x+112,y+82,.58f,"TEMP  --");
  }
 }
 
@@ -550,9 +555,32 @@ int main(void){
  while(running){
   sceCtrlPeekBufferPositive(0,&p,1); unsigned q=p.buttons&~o.buttons;
   int n=count();
-  if((p.buttons&SCE_CTRL_RTRIGGER) && (q&SCE_CTRL_UP)){quick_menu=!quick_menu;trophy_quick_menu=0;}
-  if((p.buttons&SCE_CTRL_LTRIGGER) && (q&SCE_CTRL_SELECT) && s.trophy_hunter && s.trophy_unlocker){trophy_quick_menu=!trophy_quick_menu;quick_menu=0;}
-  if((quick_menu||trophy_quick_menu) && (q&SCE_CTRL_CIRCLE)){quick_menu=0;trophy_quick_menu=0;q&=~SCE_CTRL_CIRCLE;}
+  /* Quick Menu: one toggle per physical chord press.
+     Releasing either key rearms the hotkey. Circle is an unconditional close. */
+  int quick_chord=(p.buttons&SCE_CTRL_RTRIGGER) && (p.buttons&SCE_CTRL_UP);
+  int trophy_chord=(p.buttons&SCE_CTRL_LTRIGGER) && (p.buttons&SCE_CTRL_SELECT);
+
+  if(quick_chord && !quick_hotkey_latched){
+   quick_hotkey_latched=1;
+   quick_menu=!quick_menu;
+   trophy_quick_menu=0;
+  }
+  if(!quick_chord) quick_hotkey_latched=0;
+
+  if(trophy_chord && !trophy_hotkey_latched){
+   trophy_hotkey_latched=1;
+   if(s.trophy_hunter && s.trophy_unlocker){
+    trophy_quick_menu=!trophy_quick_menu;
+    quick_menu=0;
+   }
+  }
+  if(!trophy_chord) trophy_hotkey_latched=0;
+
+  if((quick_menu||trophy_quick_menu) && (p.buttons&SCE_CTRL_CIRCLE)){
+   quick_menu=0;
+   trophy_quick_menu=0;
+   q&=~SCE_CTRL_CIRCLE;
+  }
   if(!(quick_menu||trophy_quick_menu) && (q&SCE_CTRL_UP)) selected=(selected+n-1)%n;
   if(!(quick_menu||trophy_quick_menu) && (q&SCE_CTRL_DOWN)) selected=(selected+1)%n;
   if(screen==PLUGINS && plugin_view) plugin_cursor=selected;
