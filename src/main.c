@@ -44,7 +44,7 @@ static int fps_value=0, fps_frames=0;
 static unsigned int fps_tick=0;
 static char operation_status[128]="Ready";
 static char last_backup_name[96]="None";
-static const char *APP_VERSION="v0.27";
+static const char *APP_VERSION="v0.29";
 
 enum IconId { ICO_HOME,ICO_PLUGIN,ICO_TROPHY,ICO_MONITOR,ICO_OVERCLOCK,ICO_RECOVERY,ICO_UPDATE,ICO_NEWS,ICO_SETTINGS,ICO_ABOUT,ICO_GITHUB,ICO_CROWN,ICO_SAVE,ICO_BACKUP,ICO_RESTORE,ICO_WARNING,ICO_CHECK,ICO_STATUS,ICO_COUNT };
 static vita2d_texture *icons[ICO_COUNT]={0};
@@ -118,6 +118,7 @@ static int create_test_config(void){
 }
 static void txt(float x,float y,float scale,const char*t);
 static void txt_dim(float x,float y,float scale,const char*t);
+static void update_fps_counter(void);
 static long file_size(const char *path){
  FILE*f=fopen(path,"rb"); if(!f)return -1; if(fseek(f,0,SEEK_END)!=0){fclose(f);return -1;} long n=ftell(f); fclose(f); return n;
 }
@@ -539,9 +540,8 @@ static void action(void){
   else if(selected==4){save_working_oc();}
   else if(selected==5){restore_working_oc();}
   else if(selected==6){oc_enabled=0;oc_cpu=0;oc_gpu=0;apply_overclock_hw();sceIoRemove(TEST_OC);test_oc_active=0;}
-  /* This milestone persists TEST/WORKING profiles and recovery state but still
-     does not write hardware clocks. Actual clock writes come only after the
-     complete validation + rollback path is tested on-device. */
+  /* Hardware clocks are applied through ScePower. TEST/WORKING profiles remain
+     separate so the UI can recover to known settings. */
  }
 }
 static void draw_quick_overlay(void){
@@ -557,7 +557,6 @@ static void draw_quick_overlay(void){
   vita2d_draw_rectangle(x-12,y-22,244,190,RGBA8(4,20,38,150));
   txt(x,y,.70f,"Quick Menu");
   char v[96];
-  const char *items[]={"HUD","FPS","CPU","GPU","MEM","BAT","TEMP"};
   for(int i=0;i<7;i++){
    if(i==quick_selected) vita2d_draw_rectangle(x-7,y+14+i*20,232,19,RGBA8(12,116,183,150));
    if(i==0) snprintf(v,sizeof(v),"HUD   %s",s.hud?"ON":"OFF");
