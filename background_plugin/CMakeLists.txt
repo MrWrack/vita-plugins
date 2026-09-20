@@ -14,6 +14,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-nostdlib")
 target_link_libraries(${PROJECT_NAME}
   taihen_stub
   SceCtrl_stub
+  SceDisplay_stub
   ScePower_stub
   SceProcessmgr_stub
   SceKernelThreadMgr_stub

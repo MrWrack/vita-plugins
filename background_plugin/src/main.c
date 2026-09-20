@@ -6,7 +6,7 @@
 #include <taihen.h>
 #include <stdint.h>
 
-/* Vita AutoPlugin Background v0.34 - framebuffer HUD prototype.
+/* Vita AutoPlugin Background v0.36 - framebuffer HUD prototype.
    Loaded into SceShell (*main) and optionally apps (*ALL).
    R + D-pad Up toggles visibility. Other input is never consumed. */
 
@@ -64,7 +64,14 @@ static int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam,int sy
   if(sceCtrlPeekBufferPositive(0,&pad,1)>0){int chord=(pad.buttons&SCE_CTRL_RTRIGGER)&&(pad.buttons&SCE_CTRL_UP);if(chord&&!g_latched){g_visible=!g_visible;g_latched=1;}if(!chord)g_latched=0;}
   uint64_t now=sceKernelGetProcessTimeWide(); if(!g_tick)g_tick=now; g_frames++; if(now-g_tick>=1000000){g_fps=g_frames;g_frames=0;g_tick=now;}
   if(g_visible && pParam && pParam->base) draw_hud(pParam);
-  return TAI_CONTINUE(int,g_display_ref,pParam,sync);
+  /* taiHEN's TAI_CONTINUE macro casts the target to int (*)().
+     Newer GCC treats that as a zero-argument prototype here, so use the
+     same taiHEN chain data with the exact sceDisplaySetFrameBuf signature. */
+  struct _tai_hook_user *cur = (struct _tai_hook_user *)g_display_ref;
+  struct _tai_hook_user *next = (struct _tai_hook_user *)cur->next;
+  typedef int (*DisplaySetFrameBufFn)(const SceDisplayFrameBuf *, int);
+  DisplaySetFrameBufFn cont = (DisplaySetFrameBufFn)(next ? next->func : cur->old);
+  return cont(pParam, sync);
 }
 
 int module_start(SceSize argc,const void *args){
