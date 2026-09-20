@@ -4,7 +4,7 @@
 #include <string.h>
 #include <psp2kern/power.h>
 
-/* Vita AutoPlugin HUD v0.40
+/* Vita AutoPlugin HUD v0.41
    Kernel framebuffer hook: intended to stay visible on LiveArea and apps.
    R + D-pad Up toggles visibility. It never consumes controller input. */
 
@@ -41,7 +41,7 @@ static const uint8_t *glyph(char c) {
 static void pixel(const SceDisplayFrameBuf *fb,int x,int y,uint32_t color){
   if(!fb || !fb->base || x<0 || y<0 || x>=(int)fb->width || y>=(int)fb->height) return;
   uintptr_t dst=(uintptr_t)&((uint32_t*)fb->base)[y*fb->pitch+x];
-  ksceKernelMemcpyKernelToUser(dst,&color,sizeof(color));
+  ksceKernelMemcpyKernelToUser((void *)dst,&color,sizeof(color));
 }
 static void ch2(const SceDisplayFrameBuf *fb,int x,int y,char c){
   const uint8_t *g=glyph(c);
@@ -90,7 +90,6 @@ static int input_thread(SceSize args,void *argp){
   return 0;
 }
 
-void _start(void) __attribute__((weak,alias("module_start")));
 int module_start(SceSize argc,const void *args){
   (void)argc;(void)args;
   g_hook=taiHookFunctionExportForKernel(KERNEL_PID,&g_ref,"SceDisplay",0x9FED47AC,0x16466675,display_patched);
