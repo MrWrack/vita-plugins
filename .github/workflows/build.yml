@@ -27,34 +27,34 @@ jobs:
           echo "VPK created:"
           ls -lh build/VitaAutoPlugin.vpk
 
-      - name: Build background plugin global HUD
+      - name: Build kernel HUD plugin
         shell: bash
         run: |
           set -o pipefail
-          rm -rf background_plugin/build
-          cmake -S background_plugin -B background_plugin/build -DCMAKE_BUILD_TYPE=Release
-          cmake --build background_plugin/build --parallel 2 2>&1 | tee background_plugin/build/plugin-build.log
-          test -s background_plugin/build/VitaAutoPluginBackground.suprx
-          echo "Background plugin created:"
-          ls -lh background_plugin/build/VitaAutoPluginBackground.suprx
+          rm -rf kernel_hud/build
+          cmake -S kernel_hud -B kernel_hud/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build kernel_hud/build --parallel 2 2>&1 | tee kernel_hud/build/hud-build.log
+          test -s kernel_hud/build/VitaAutoPluginHUD.skprx
+          echo "Kernel HUD plugin created:"
+          ls -lh kernel_hud/build/VitaAutoPluginHUD.skprx
 
       - name: Prepare download package
         shell: bash
         run: |
           mkdir -p dist
-          cp build/VitaAutoPlugin.vpk dist/VitaAutoPlugin-v0.39.vpk
+          cp build/VitaAutoPlugin.vpk dist/VitaAutoPlugin-v0.40.vpk
           cp build/build.log dist/build.log
-          if [ -f background_plugin/build/VitaAutoPluginBackground.suprx ]; then
-            cp background_plugin/build/VitaAutoPluginBackground.suprx dist/
+          if [ -f kernel_hud/build/VitaAutoPluginHUD.skprx ]; then
+            cp kernel_hud/build/VitaAutoPluginHUD.skprx dist/
           fi
-          if [ -f background_plugin/build/plugin-build.log ]; then
-            cp background_plugin/build/plugin-build.log dist/
+          if [ -f kernel_hud/build/hud-build.log ]; then
+            cp kernel_hud/build/hud-build.log dist/
           fi
           ls -lh dist
 
-      - name: Upload VitaAutoPlugin v0.39
+      - name: Upload VitaAutoPlugin v0.40
         uses: actions/upload-artifact@v4
         with:
-          name: VitaAutoPlugin-MrWrack-v0.39
+          name: VitaAutoPlugin-MrWrack-v0.40
           path: dist/
           if-no-files-found: error
