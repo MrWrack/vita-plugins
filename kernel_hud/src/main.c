@@ -5,7 +5,7 @@
 #include <psp2kern/io/fcntl.h>
 #include <psp2kern/io/stat.h>
 
-/* Vita AutoPlugin HUD v0.47
+/* Vita AutoPlugin HUD v0.48
    Kernel framebuffer hook: intended to stay visible on LiveArea and apps.
    R + D-pad Up toggles visibility. It never consumes controller input. */
 
@@ -27,6 +27,12 @@ typedef struct VapOcProfile {
 } VapOcProfile;
 
 static VapOcProfile g_oc = {OC_CFG_MAGIC,0,333,111,166,111,0};
+static VapOcProfile g_prev_oc;
+static int g_prev_valid = 0;
+static int (*g_set_cpu)(int)=0;
+static int (*g_set_bus)(int)=0;
+static int (*g_set_gpu)(int,int)=0;
+static int (*g_set_xbar)(int)=0;
 
 /* Stable Vita CPU choices used by this menu. */
 static const int CPU_STEPS[]={333,444,500};
@@ -116,19 +122,29 @@ static void metric(const SceDisplayFrameBuf *fb,int y,const char *name,int val,c
 static int nearest_step(const int *a,int n,int v){int best=0,d=0x7fffffff;for(int i=0;i<n;i++){int x=a[i]-v;if(x<0)x=-x;if(x<d){d=x;best=i;}}return best;}
 static void step_value(int *v,const int *a,int n,int dir){int i=nearest_step(a,n,*v);i+=dir;if(i<0)i=0;if(i>=n)i=n-1;*v=a[i];}
 
-static void apply_oc(void){
-  /* OFF means hands-off. Do not rewrite stock clocks: doing so caused a
-     kernel crash/unsafe shutdown on hardware even when CPU displayed 333 MHz. */
-  if(!g_oc.enabled) return;
-  int cpu=g_oc.boost?500:g_oc.cpu;
-  int gpu=g_oc.boost?222:g_oc.gpu;
-  int bus=g_oc.boost?222:g_oc.bus;
-  int xbar=g_oc.boost?166:g_oc.xbar;
-  kscePowerSetArmClockFrequency(cpu);
-  kscePowerSetGpuClockFrequency(gpu);
-  kscePowerSetBusClockFrequency(bus);
-  kscePowerSetGpuXbarClockFrequency(xbar);
+static int apply_values(int cpu,int gpu,int bus,int xbar){
+  if(!g_set_cpu || !g_set_gpu || !g_set_bus || !g_set_xbar) return -1;
+  int r=g_set_cpu(cpu); if(r<0)return r;
+  r=g_set_gpu(gpu,gpu); if(r<0)return r;
+  r=g_set_bus(bus); if(r<0)return r;
+  return g_set_xbar(xbar);
 }
+static int apply_oc(void){
+  if(!g_oc.enabled) return 0;
+  VapOcProfile old={OC_CFG_MAGIC,1,kscePowerGetArmClockFrequency(),gpu_mhz(),
+    kscePowerGetBusClockFrequency(),kscePowerGetGpuXbarClockFrequency(),0};
+  int r=apply_values(g_oc.boost?500:g_oc.cpu,g_oc.boost?222:g_oc.gpu,
+                     g_oc.boost?222:g_oc.bus,g_oc.boost?166:g_oc.xbar);
+  if(r>=0){g_prev_oc=old;g_prev_valid=1;}
+  return r;
+}
+static int reset_oc(void){
+  if(!g_prev_valid)return 0;
+  int r=apply_values(g_prev_oc.cpu,g_prev_oc.gpu,g_prev_oc.bus,g_prev_oc.xbar);
+  if(r>=0){g_oc.cpu=g_prev_oc.cpu;g_oc.gpu=g_prev_oc.gpu;g_oc.bus=g_prev_oc.bus;g_oc.xbar=g_prev_oc.xbar;g_oc.boost=0;g_prev_valid=0;}
+  return r;
+}
+static int delete_save(void){ return ksceIoRemove(OC_CFG_PATH); }
 static int save_oc(void){
   ksceIoMkdir("ur0:data/VitaAutoPlugin",0777);
   int fd=ksceIoOpen(OC_CFG_PATH,SCE_O_WRONLY|SCE_O_CREAT|SCE_O_TRUNC,0777);
@@ -153,7 +169,7 @@ static void draw_oc(const SceDisplayFrameBuf *fb){
   const char *names[4]={"CPU","GPU","BUS","XBAR"}; int vals[4]={g_oc.cpu,g_oc.gpu,g_oc.bus,g_oc.xbar};
   for(int i=0;i<4;i++){p=b;*p++=(g_oc_sel==1+i)?'>':' ';q=names[i];while(*q)*p++=*q++;*p++=' ';p=u32s(p,(unsigned)vals[i]);*p++=' ';*p++='M';*p++='H';*p++='Z';*p=0;text(fb,x,y,b);y+=18;}
   p=b;*p++=(g_oc_sel==5)?'>':' ';q="FPS BOOST ";while(*q)*p++=*q++;q=g_oc.boost?"ON":"OFF";while(*q)*p++=*q++;*p=0;text(fb,x,y,b);y+=18;
-  const char *acts[3]={"APPLY","SAVE","RESET"};for(int i=0;i<3;i++){p=b;*p++=(g_oc_sel==6+i)?'>':' ';q=acts[i];while(*q)*p++=*q++;*p=0;text(fb,x,y,b);y+=18;}
+  const char *acts[4]={"APPLY","SAVE","DELETE SAVE","RESET"};for(int i=0;i<4;i++){p=b;*p++=(g_oc_sel==6+i)?'>':' ';q=acts[i];while(*q)*p++=*q++;*p=0;text(fb,x,y,b);y+=18;}
   if(g_save_flash>0){text(fb,x,y,"SAVED");g_save_flash--;}
 }
 
@@ -198,8 +214,8 @@ static int input_thread(SceSize args,void *argp){
       if((now&hud_chord)==hud_chord && (g_old_buttons&hud_chord)!=hud_chord) g_visible=!g_visible;
       if((now&oc_chord)==oc_chord && (g_old_buttons&oc_chord)!=oc_chord) g_oc_open=!g_oc_open;
       else if(g_oc_open){
-        if(pressed&SCE_CTRL_DOWN){g_oc_sel++;if(g_oc_sel>8)g_oc_sel=0;}
-        if((pressed&SCE_CTRL_UP) && !(now&SCE_CTRL_TRIANGLE)){g_oc_sel--;if(g_oc_sel<0)g_oc_sel=8;}
+        if(pressed&SCE_CTRL_DOWN){g_oc_sel++;if(g_oc_sel>9)g_oc_sel=0;}
+        if((pressed&SCE_CTRL_UP) && !(now&SCE_CTRL_TRIANGLE)){g_oc_sel--;if(g_oc_sel<0)g_oc_sel=9;}
         if(pressed&SCE_CTRL_LEFT){if(g_oc_sel==0)g_oc.enabled=0;else if(g_oc_sel==1)step_value(&g_oc.cpu,CPU_STEPS,3,-1);else if(g_oc_sel==2)step_value(&g_oc.gpu,GPU_STEPS,6,-1);else if(g_oc_sel==3)step_value(&g_oc.bus,BUS_STEPS,5,-1);else if(g_oc_sel==4)step_value(&g_oc.xbar,XBAR_STEPS,3,-1);else if(g_oc_sel==5)g_oc.boost=0;}
         if(pressed&SCE_CTRL_RIGHT){if(g_oc_sel==0)g_oc.enabled=1;else if(g_oc_sel==1)step_value(&g_oc.cpu,CPU_STEPS,3,1);else if(g_oc_sel==2)step_value(&g_oc.gpu,GPU_STEPS,6,1);else if(g_oc_sel==3)step_value(&g_oc.bus,BUS_STEPS,5,1);else if(g_oc_sel==4)step_value(&g_oc.xbar,XBAR_STEPS,3,1);else if(g_oc_sel==5)g_oc.boost=1;}
         if(pressed&SCE_CTRL_CROSS){
@@ -207,7 +223,7 @@ static int input_thread(SceSize args,void *argp){
           else if(g_oc_sel==5)g_oc.boost=!g_oc.boost;
           else if(g_oc_sel==6)apply_oc();
           else if(g_oc_sel==7){if(save_oc()==0)g_save_flash=40;}
-          else if(g_oc_sel==8){g_oc.enabled=0;g_oc.cpu=333;g_oc.gpu=111;g_oc.bus=166;g_oc.xbar=111;g_oc.boost=0;}
+          else if(g_oc_sel==8){delete_save();}\n          else if(g_oc_sel==9){reset_oc();}
         }
         if(pressed&SCE_CTRL_CIRCLE)g_oc_open=0;
       }
@@ -221,6 +237,10 @@ static int input_thread(SceSize args,void *argp){
 int module_start(SceSize argc,const void *args){
   (void)argc;(void)args;
   module_get_export_func(KERNEL_PID,"ScePower",0x1590166F,0x475BCC82,(uintptr_t *)&g_gpu_get);
+  module_get_export_func(KERNEL_PID,"ScePower",0x1590166F,0x74DB5AE5,(uintptr_t *)&g_set_cpu);
+  module_get_export_func(KERNEL_PID,"ScePower",0x1590166F,0xB8D7B3FB,(uintptr_t *)&g_set_bus);
+  module_get_export_func(KERNEL_PID,"ScePower",0x1590166F,0x264C24FC,(uintptr_t *)&g_set_gpu);
+  module_get_export_func(KERNEL_PID,"ScePower",0x1590166F,0xA7739DBE,(uintptr_t *)&g_set_xbar);
   if(module_get_export_func(KERNEL_PID,"SceSysmem",0x63A519E5,0x3650963F,(uintptr_t *)&g_addrspace_info)<0)
     module_get_export_func(KERNEL_PID,"SceSysmem",0x02451F0F,0xB9B69700,(uintptr_t *)&g_addrspace_info);
   load_oc(); /* load saved choices only; never change clocks during boot */
