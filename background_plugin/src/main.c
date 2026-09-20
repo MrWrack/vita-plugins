@@ -6,13 +6,13 @@
 #include <taihen.h>
 #include <stdint.h>
 
-/* Vita AutoPlugin Background v0.36 - framebuffer HUD prototype.
+/* Vita AutoPlugin Background v0.38 - LiveArea HUD visibility fix.
    Loaded into SceShell (*main) and optionally apps (*ALL).
    R + D-pad Up toggles visibility. Other input is never consumed. */
 
 static SceUID g_hook = -1;
 static tai_hook_ref_t g_display_ref;
-static int g_visible = 0, g_latched = 0;
+static int g_visible = 1, g_latched = 0;
 static uint64_t g_tick = 0;
 static unsigned g_frames = 0, g_fps = 0;
 
@@ -44,34 +44,34 @@ static void putpx(const SceDisplayFrameBuf *fb,int x,int y,uint32_t c){
 static void chr(const SceDisplayFrameBuf *fb,int x,int y,char c){
   const uint8_t *g=glyph(c); for(int yy=0;yy<7;yy++) for(int xx=0;xx<5;xx++) if(g[yy]&(1<<(4-xx))) putpx(fb,x+xx,y+yy,0xFFFFFFFF);
 }
-static void str(const SceDisplayFrameBuf *fb,int x,int y,const char *s){for(;*s;s++,x+=6) chr(fb,x,y,*s);}
+static void chr2(const SceDisplayFrameBuf *fb,int x,int y,char c){
+  const uint8_t *g=glyph(c);
+  for(int yy=0;yy<7;yy++) for(int xx=0;xx<5;xx++) if(g[yy]&(1<<(4-xx))){
+    putpx(fb,x+xx*2,y+yy*2,0xFFFFFFFF); putpx(fb,x+xx*2+1,y+yy*2,0xFFFFFFFF);
+    putpx(fb,x+xx*2,y+yy*2+1,0xFFFFFFFF); putpx(fb,x+xx*2+1,y+yy*2+1,0xFFFFFFFF);
+  }
+}
+static void str(const SceDisplayFrameBuf *fb,int x,int y,const char *s){for(;*s;s++,x+=12) chr2(fb,x,y,*s);}
 static char *u32(char *p,unsigned v){char t[11];int n=0;if(!v){*p++='0';return p;}while(v){t[n++]=(char)('0'+v%10);v/=10;}while(n)*p++=t[--n];return p;}
-static void metric(const SceDisplayFrameBuf *fb,int y,const char *name,unsigned val,const char *unit){char b[48],*p=b;while(*name)*p++=*name++;*p++=' ';p=u32(p,val);if(unit){*p++=' ';while(*unit)*p++=*unit++;}*p=0;str(fb,704,y,b);}
+static void metric(const SceDisplayFrameBuf *fb,int y,const char *name,unsigned val,const char *unit){char b[48],*p=b;while(*name)*p++=*name++;*p++=' ';p=u32(p,val);if(unit){*p++=' ';while(*unit)*p++=*unit++;}*p=0;str(fb,650,y,b);}
 
 static void draw_hud(const SceDisplayFrameBuf *fb){
   int temp=scePowerGetBatteryTemp();
-  str(fb,704,38,"HUD");
-  metric(fb,54,"FPS",g_fps,0);
-  metric(fb,66,"CPU",(unsigned)scePowerGetArmClockFrequency(),"MHZ");
-  metric(fb,78,"GPU",(unsigned)scePowerGetGpuClockFrequency(),"MHZ");
-  str(fb,704,90,"MEM N-A");
-  metric(fb,102,"BAT",(unsigned)scePowerGetBatteryLifePercent(),"%");
-  if(temp>=0 && temp<=10000){ char b[32],*p=b; const char *n="TEMP ";while(*n)*p++=*n++;p=u32(p,(unsigned)(temp/100));*p++='.';*p++=(char)('0'+((temp/10)%10));*p++='C';*p=0;str(fb,704,114,b);} else str(fb,704,114,"TEMP N-A");
+  str(fb,650,24,"HUD");
+  metric(fb,44,"FPS",g_fps,0);
+  metric(fb,62,"CPU",(unsigned)scePowerGetArmClockFrequency(),"MHZ");
+  metric(fb,80,"GPU",(unsigned)scePowerGetGpuClockFrequency(),"MHZ");
+  str(fb,650,98,"MEM N-A");
+  metric(fb,116,"BAT",(unsigned)scePowerGetBatteryLifePercent(),"%");
+  if(temp>=0 && temp<=10000){ char b[32],*p=b; const char *n="TEMP ";while(*n)*p++=*n++;p=u32(p,(unsigned)(temp/100));*p++='.';*p++=(char)('0'+((temp/10)%10));*p++='C';*p=0;str(fb,650,134,b);} else str(fb,650,134,"TEMP N-A");
 }
 
 static int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam,int sync){
   SceCtrlData pad;
   if(sceCtrlPeekBufferPositive(0,&pad,1)>0){int chord=(pad.buttons&SCE_CTRL_RTRIGGER)&&(pad.buttons&SCE_CTRL_UP);if(chord&&!g_latched){g_visible=!g_visible;g_latched=1;}if(!chord)g_latched=0;}
   uint64_t now=sceKernelGetProcessTimeWide(); if(!g_tick)g_tick=now; g_frames++; if(now-g_tick>=1000000){g_fps=g_frames;g_frames=0;g_tick=now;}
-  if(g_visible && pParam && pParam->base) draw_hud(pParam);
-  /* taiHEN's TAI_CONTINUE macro casts the target to int (*)().
-     Newer GCC treats that as a zero-argument prototype here, so use the
-     same taiHEN chain data with the exact sceDisplaySetFrameBuf signature. */
-  struct _tai_hook_user *cur = (struct _tai_hook_user *)g_display_ref;
-  struct _tai_hook_user *next = (struct _tai_hook_user *)cur->next;
-  typedef int (*DisplaySetFrameBufFn)(const SceDisplayFrameBuf *, int);
-  DisplaySetFrameBufFn cont = (DisplaySetFrameBufFn)(next ? next->func : cur->old);
-  return cont(pParam, sync);
+  if(g_visible && pParam && pParam->base && pParam->width >= 800 && pParam->height >= 500) draw_hud(pParam);
+  return TAI_CONTINUE(int, g_display_ref, pParam, sync);
 }
 
 int module_start(SceSize argc,const void *args){
