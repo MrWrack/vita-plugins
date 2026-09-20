@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <psp2kern/power.h>
 
-/* Vita AutoPlugin HUD v0.42
+/* Vita AutoPlugin HUD v0.43
    Kernel framebuffer hook: intended to stay visible on LiveArea and apps.
    R + D-pad Up toggles visibility. It never consumes controller input. */
 
@@ -15,6 +15,34 @@ static volatile int g_visible = 1;
 static uint32_t g_old_buttons = 0;
 static uint64_t g_tick = 0;
 static unsigned g_frames = 0, g_fps = 0;
+
+#define HUD_X 810
+
+/* Resolved from ScePower exactly as PSVshell does; avoids a fake GPU value. */
+static int (*g_gpu_get)(int *a1, int *a2) = 0;
+
+/* Optional live main-memory metric. If unavailable, the row is omitted (never N-A). */
+static int (*g_addrspace_info)(uint32_t a1, SceSysmemAddressSpaceInfo *a2) = 0;
+int module_get_export_func(SceUID pid, const char *modname, uint32_t libnid, uint32_t funcnid, uintptr_t *func);
+SceUInt32 ksceKernelSysrootGetCurrentAddressSpaceCB(void);
+
+static int gpu_mhz(void){
+  int a=0,b=0;
+  if(!g_gpu_get) return -1;
+  if(g_gpu_get(&a,&b)<0) return -1;
+  return (a>0 && a<1000) ? a : -1;
+}
+
+static int mem_used_mb(void){
+  if(!g_addrspace_info) return -1;
+  uint32_t cas=ksceKernelSysrootGetCurrentAddressSpaceCB();
+  if(!cas) return -1;
+  uint32_t asid=*(uint32_t *)(cas+328);
+  if(!asid) return -1;
+  SceSysmemAddressSpaceInfo info;
+  if(g_addrspace_info(asid,&info)<0 || info.total<info.free) return -1;
+  return (int)((info.total-info.free)/(1024u*1024u));
+}
 
 static const uint8_t *glyph(char c) {
   static const uint8_t z[7]={0,0,0,0,0,0,0};
@@ -51,20 +79,23 @@ static void text(const SceDisplayFrameBuf *fb,int x,int y,const char *s){while(*
 static char *u32s(char *p,unsigned v){char t[11];int n=0;if(!v){*p++='0';return p;}while(v){t[n++]=(char)('0'+v%10);v/=10;}while(n)*p++=t[--n];return p;}
 static void metric(const SceDisplayFrameBuf *fb,int y,const char *name,int val,const char *unit){
   char b[48],*p=b; while(*name)*p++=*name++; *p++=' ';
-  if(val<0){*p++='N';*p++='-';*p++='A';} else p=u32s(p,(unsigned)val);
-  if(unit&&val>=0){*p++=' ';while(*unit)*p++=*unit++;} *p=0; text(fb,650,y,b);
+  if(val<0) return; else p=u32s(p,(unsigned)val);
+  if(unit){*p++=' ';while(*unit)*p++=*unit++;} *p=0; text(fb,HUD_X,y,b);
 }
 static void draw_hud(const SceDisplayFrameBuf *fb){
   int cpu=kscePowerGetArmClockFrequency();
   int bat=kscePowerGetBatteryLifePercent();
   int temp=kscePowerGetBatteryTemp();
-  text(fb,650,24,"HUD GLOBAL");
-  metric(fb,44,"FPS",(int)g_fps,0);
-  metric(fb,62,"CPU",cpu,"MHZ");
-  text(fb,650,80,"GPU N-A");
-  text(fb,650,98,"MEM N-A");
-  metric(fb,116,"BAT",bat,"%");
-  if(temp>=0 && temp<=10000){char b[32],*p=b;const char *s="TEMP ";while(*s)*p++=*s++;p=u32s(p,(unsigned)(temp/100));*p++='.';*p++=(char)('0'+((temp/10)%10));*p++='C';*p=0;text(fb,650,134,b);}else text(fb,650,134,"TEMP N-A");
+  int gpu=gpu_mhz();
+  int mem=mem_used_mb();
+  int y=24;
+  text(fb,HUD_X,y,"HUD"); y+=18;
+  metric(fb,y,"FPS",(int)g_fps,0); y+=18;
+  metric(fb,y,"CPU",cpu,"MHZ"); y+=18;
+  if(gpu>=0){ metric(fb,y,"GPU",gpu,"MHZ"); y+=18; }
+  if(mem>=0){ metric(fb,y,"MEM",mem,"MB"); y+=18; }
+  metric(fb,y,"BAT",bat,"%"); y+=18;
+  if(temp>=0 && temp<=10000){char b[32],*p=b;const char *s="TEMP ";while(*s)*p++=*s++;p=u32s(p,(unsigned)(temp/100));*p++='.';*p++=(char)('0'+((temp/10)%10));*p++='C';*p=0;text(fb,HUD_X,y,b);}
 }
 
 static int display_patched(int head,int index,const SceDisplayFrameBuf *fb,int sync){
@@ -91,6 +122,9 @@ static int input_thread(SceSize args,void *argp){
 
 int module_start(SceSize argc,const void *args){
   (void)argc;(void)args;
+  module_get_export_func(KERNEL_PID,"ScePower",0x1590166F,0x475BCC82,(uintptr_t *)&g_gpu_get);
+  if(module_get_export_func(KERNEL_PID,"SceSysmem",0x63A519E5,0x3650963F,(uintptr_t *)&g_addrspace_info)<0)
+    module_get_export_func(KERNEL_PID,"SceSysmem",0x02451F0F,0xB9B69700,(uintptr_t *)&g_addrspace_info);
   g_hook=taiHookFunctionExportForKernel(KERNEL_PID,&g_ref,"SceDisplay",0x9FED47AC,0x16466675,display_patched);
   if(g_hook<0) return SCE_KERNEL_START_NO_RESIDENT;
   g_thread=ksceKernelCreateThread("vap_hud_input",input_thread,0x3C,0x2000,0,0x10000,0);

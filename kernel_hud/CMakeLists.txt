@@ -16,8 +16,10 @@ set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-nostdlib -Wl,-e,mo
 target_link_libraries(${PROJECT_NAME}
   gcc
   taihenForKernel_stub
+  taihenModuleUtils_stub
   SceThreadmgrForDriver_stub
   SceSysmemForDriver_stub
+  SceSysrootForKernel_stub
   ScePowerForDriver_stub
   SceCtrlForDriver_stub
 )
