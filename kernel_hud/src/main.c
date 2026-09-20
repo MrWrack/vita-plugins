@@ -223,7 +223,8 @@ static int input_thread(SceSize args,void *argp){
           else if(g_oc_sel==5)g_oc.boost=!g_oc.boost;
           else if(g_oc_sel==6)apply_oc();
           else if(g_oc_sel==7){if(save_oc()==0)g_save_flash=40;}
-          else if(g_oc_sel==8){delete_save();}\n          else if(g_oc_sel==9){reset_oc();}
+          else if(g_oc_sel==8){delete_save();}
+          else if(g_oc_sel==9){reset_oc();}
         }
         if(pressed&SCE_CTRL_CIRCLE)g_oc_open=0;
       }
