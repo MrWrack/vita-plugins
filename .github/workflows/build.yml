@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          cp build/VitaAutoPlugin.vpk dist/VitaAutoPlugin-v0.41.vpk
+          cp build/VitaAutoPlugin.vpk dist/VitaAutoPlugin-v0.42.vpk
           cp build/build.log dist/build.log
           if [ -f kernel_hud/build/VitaAutoPluginHUD.skprx ]; then
             cp kernel_hud/build/VitaAutoPluginHUD.skprx dist/
@@ -52,9 +52,9 @@ jobs:
           fi
           ls -lh dist
 
-      - name: Upload VitaAutoPlugin v0.41
+      - name: Upload VitaAutoPlugin v0.42
         uses: actions/upload-artifact@v4
         with:
-          name: VitaAutoPlugin-MrWrack-v0.41
+          name: VitaAutoPlugin-MrWrack-v0.42
           path: dist/
           if-no-files-found: error
