@@ -12,7 +12,7 @@ add_executable(${PROJECT_NAME} src/main.c)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 17)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_EXTENSIONS ON)
 target_compile_options(${PROJECT_NAME} PRIVATE -O2 -Wall -Wextra)
-set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-nostdlib")
+set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-nostdlib -Wl,-e,module_start")
 target_link_libraries(${PROJECT_NAME}
   gcc
   taihenForKernel_stub

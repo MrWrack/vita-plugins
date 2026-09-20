@@ -1,10 +1,9 @@
 #include <vitasdkkern.h>
 #include <taihen.h>
 #include <stdint.h>
-#include <string.h>
 #include <psp2kern/power.h>
 
-/* Vita AutoPlugin HUD v0.41
+/* Vita AutoPlugin HUD v0.42
    Kernel framebuffer hook: intended to stay visible on LiveArea and apps.
    R + D-pad Up toggles visibility. It never consumes controller input. */
 
@@ -82,7 +81,7 @@ static int display_patched(int head,int index,const SceDisplayFrameBuf *fb,int s
 static int input_thread(SceSize args,void *argp){
   (void)args;(void)argp;
   while(g_run){
-    SceCtrlData pad; memset(&pad,0,sizeof(pad));
+    SceCtrlData pad;
     int r=ksceCtrlPeekBufferPositive(0,&pad,1); if(r<0) r=ksceCtrlPeekBufferPositive(1,&pad,1);
     if(r>0){uint32_t now=pad.buttons; uint32_t chord=SCE_CTRL_RTRIGGER|SCE_CTRL_UP; if((now&chord)==chord && (g_old_buttons&chord)!=chord) g_visible=!g_visible; g_old_buttons=now;}
     ksceKernelDelayThread(50000);
