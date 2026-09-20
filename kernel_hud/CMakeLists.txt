@@ -22,5 +22,6 @@ target_link_libraries(${PROJECT_NAME}
   SceSysrootForKernel_stub
   ScePowerForDriver_stub
   SceCtrlForDriver_stub
+  SceIofilemgrForDriver_stub
 )
 vita_create_self(VitaAutoPluginHUD.skprx ${PROJECT_NAME} UNSAFE CONFIG ${CMAKE_SOURCE_DIR}/exports.yml)
