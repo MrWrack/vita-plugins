@@ -5,7 +5,7 @@
 #include <psp2kern/io/fcntl.h>
 #include <psp2kern/io/stat.h>
 
-/* Vita AutoPlugin HUD v0.48
+/* Vita AutoPlugin HUD v0.49
    Kernel framebuffer hook: intended to stay visible on LiveArea and apps.
    R + D-pad Up toggles visibility. It never consumes controller input. */
 
@@ -139,9 +139,18 @@ static int apply_oc(void){
   return r;
 }
 static int reset_oc(void){
-  if(!g_prev_valid)return 0;
-  int r=apply_values(g_prev_oc.cpu,g_prev_oc.gpu,g_prev_oc.bus,g_prev_oc.xbar);
-  if(r>=0){g_oc.cpu=g_prev_oc.cpu;g_oc.gpu=g_prev_oc.gpu;g_oc.bus=g_prev_oc.bus;g_oc.xbar=g_prev_oc.xbar;g_oc.boost=0;g_prev_valid=0;}
+  /* RESET means restore Vita's normal clock profile. It is an explicit action,
+     so write the defaults immediately; SAVE remains untouched. */
+  int r=apply_values(333,111,166,111);
+  if(r>=0){
+    g_oc.enabled=0;
+    g_oc.cpu=333;
+    g_oc.gpu=111;
+    g_oc.bus=166;
+    g_oc.xbar=111;
+    g_oc.boost=0;
+    g_prev_valid=0;
+  }
   return r;
 }
 static int delete_save(void){ return ksceIoRemove(OC_CFG_PATH); }
