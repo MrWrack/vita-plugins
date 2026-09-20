@@ -5,7 +5,7 @@
 #include <psp2kern/io/fcntl.h>
 #include <psp2kern/io/stat.h>
 
-/* Vita AutoPlugin HUD v0.46
+/* Vita AutoPlugin HUD v0.47
    Kernel framebuffer hook: intended to stay visible on LiveArea and apps.
    R + D-pad Up toggles visibility. It never consumes controller input. */
 
@@ -117,13 +117,9 @@ static int nearest_step(const int *a,int n,int v){int best=0,d=0x7fffffff;for(in
 static void step_value(int *v,const int *a,int n,int dir){int i=nearest_step(a,n,*v);i+=dir;if(i<0)i=0;if(i>=n)i=n-1;*v=a[i];}
 
 static void apply_oc(void){
-  if(!g_oc.enabled){
-    kscePowerSetArmClockFrequency(333);
-    kscePowerSetGpuClockFrequency(111);
-    kscePowerSetBusClockFrequency(166);
-    kscePowerSetGpuXbarClockFrequency(111);
-    return;
-  }
+  /* OFF means hands-off. Do not rewrite stock clocks: doing so caused a
+     kernel crash/unsafe shutdown on hardware even when CPU displayed 333 MHz. */
+  if(!g_oc.enabled) return;
   int cpu=g_oc.boost?500:g_oc.cpu;
   int gpu=g_oc.boost?222:g_oc.gpu;
   int bus=g_oc.boost?222:g_oc.bus;
@@ -146,7 +142,7 @@ static void load_oc(void){
   int fd=ksceIoOpen(OC_CFG_PATH,SCE_O_RDONLY,0);
   if(fd<0)return;
   int r=ksceIoRead(fd,&t,sizeof(t));ksceIoClose(fd);
-  if(r==(int)sizeof(t)&&t.magic==OC_CFG_MAGIC){g_oc=t;apply_oc();}
+  if(r==(int)sizeof(t)&&t.magic==OC_CFG_MAGIC){g_oc=t;}
 }
 static void draw_oc(const SceDisplayFrameBuf *fb){
   int x=590,y=24; char b[48],*p; const char *q;
@@ -210,8 +206,8 @@ static int input_thread(SceSize args,void *argp){
           if(g_oc_sel==0)g_oc.enabled=!g_oc.enabled;
           else if(g_oc_sel==5)g_oc.boost=!g_oc.boost;
           else if(g_oc_sel==6)apply_oc();
-          else if(g_oc_sel==7){apply_oc();if(save_oc()==0)g_save_flash=40;}
-          else if(g_oc_sel==8){g_oc.enabled=0;g_oc.cpu=333;g_oc.gpu=111;g_oc.bus=166;g_oc.xbar=111;g_oc.boost=0;apply_oc();}
+          else if(g_oc_sel==7){if(save_oc()==0)g_save_flash=40;}
+          else if(g_oc_sel==8){g_oc.enabled=0;g_oc.cpu=333;g_oc.gpu=111;g_oc.bus=166;g_oc.xbar=111;g_oc.boost=0;}
         }
         if(pressed&SCE_CTRL_CIRCLE)g_oc_open=0;
       }
@@ -227,7 +223,7 @@ int module_start(SceSize argc,const void *args){
   module_get_export_func(KERNEL_PID,"ScePower",0x1590166F,0x475BCC82,(uintptr_t *)&g_gpu_get);
   if(module_get_export_func(KERNEL_PID,"SceSysmem",0x63A519E5,0x3650963F,(uintptr_t *)&g_addrspace_info)<0)
     module_get_export_func(KERNEL_PID,"SceSysmem",0x02451F0F,0xB9B69700,(uintptr_t *)&g_addrspace_info);
-  load_oc(); /* applies saved clocks, but menu itself always starts closed */
+  load_oc(); /* load saved choices only; never change clocks during boot */
   g_oc_open=0;
   g_hook=taiHookFunctionExportForKernel(KERNEL_PID,&g_ref,"SceDisplay",0x9FED47AC,0x16466675,display_patched);
   if(g_hook<0) return SCE_KERNEL_START_NO_RESIDENT;
