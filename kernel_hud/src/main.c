@@ -5,7 +5,7 @@
 #include <psp2kern/io/fcntl.h>
 #include <psp2kern/io/stat.h>
 
-/* Vita AutoPlugin HUD v0.49
+/* Vita AutoPlugin HUD v0.50
    Kernel framebuffer hook: intended to stay visible on LiveArea and apps.
    R + D-pad Up toggles visibility. It never consumes controller input. */
 
@@ -177,7 +177,7 @@ static void draw_oc(const SceDisplayFrameBuf *fb){
 
   const char *names[4]={"CPU","GPU","BUS","XBAR"}; int vals[4]={g_oc.cpu,g_oc.gpu,g_oc.bus,g_oc.xbar};
   for(int i=0;i<4;i++){p=b;*p++=(g_oc_sel==1+i)?'>':' ';q=names[i];while(*q)*p++=*q++;*p++=' ';p=u32s(p,(unsigned)vals[i]);*p++=' ';*p++='M';*p++='H';*p++='Z';*p=0;text(fb,x,y,b);y+=18;}
-  p=b;*p++=(g_oc_sel==5)?'>':' ';q="FPS BOOST ";while(*q)*p++=*q++;q=g_oc.boost?"ON":"OFF";while(*q)*p++=*q++;*p=0;text(fb,x,y,b);y+=18;
+  p=b;*p++=(g_oc_sel==5)?'>':' ';q="PERFORMANCE BOOST ";while(*q)*p++=*q++;q=g_oc.boost?"ON":"OFF";while(*q)*p++=*q++;*p=0;text(fb,x,y,b);y+=18;
   const char *acts[4]={"APPLY","SAVE","DELETE SAVE","RESET"};for(int i=0;i<4;i++){p=b;*p++=(g_oc_sel==6+i)?'>':' ';q=acts[i];while(*q)*p++=*q++;*p=0;text(fb,x,y,b);y+=18;}
   if(g_save_flash>0){text(fb,x,y,"SAVED");g_save_flash--;}
 }
