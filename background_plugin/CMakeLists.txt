@@ -15,6 +15,7 @@ target_link_libraries(${PROJECT_NAME}
   taihen_stub
   SceCtrl_stub
   ScePower_stub
+  SceProcessmgr_stub
   SceKernelThreadMgr_stub
   SceLibKernel_stub
   gcc

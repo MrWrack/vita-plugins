@@ -1,6 +1,5 @@
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/processmgr.h>
-#include <psp2/kernel/sysmem.h>
 #include <psp2/ctrl.h>
 #include <psp2/display.h>
 #include <psp2/power.h>
@@ -51,12 +50,11 @@ static void metric(const SceDisplayFrameBuf *fb,int y,const char *name,unsigned 
 
 static void draw_hud(const SceDisplayFrameBuf *fb){
   int temp=scePowerGetBatteryTemp();
-  SceKernelFreeMemorySizeInfo mi; mi.size=sizeof(mi); mi.size_user=mi.size_cdram=mi.size_phycont=0;
   str(fb,704,38,"HUD");
   metric(fb,54,"FPS",g_fps,0);
   metric(fb,66,"CPU",(unsigned)scePowerGetArmClockFrequency(),"MHZ");
   metric(fb,78,"GPU",(unsigned)scePowerGetGpuClockFrequency(),"MHZ");
-  if(sceKernelGetFreeMemorySize(&mi)>=0) metric(fb,90,"MEM",(unsigned)(mi.size_user/(1024*1024)),"MB"); else str(fb,704,90,"MEM N-A");
+  str(fb,704,90,"MEM N-A");
   metric(fb,102,"BAT",(unsigned)scePowerGetBatteryLifePercent(),"%");
   if(temp>=0 && temp<=10000){ char b[32],*p=b; const char *n="TEMP ";while(*n)*p++=*n++;p=u32(p,(unsigned)(temp/100));*p++='.';*p++=(char)('0'+((temp/10)%10));*p++='C';*p=0;str(fb,704,114,b);} else str(fb,704,114,"TEMP N-A");
 }
@@ -70,7 +68,8 @@ static int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam,int sy
 }
 
 int module_start(SceSize argc,const void *args){
+  (void)argc; (void)args;
   g_hook=taiHookFunctionImport(&g_display_ref,TAI_MAIN_MODULE,TAI_ANY_LIBRARY,0x7A410B64,sceDisplaySetFrameBuf_patched);
   return g_hook<0 ? SCE_KERNEL_START_NO_RESIDENT : SCE_KERNEL_START_SUCCESS;
 }
-int module_stop(SceSize argc,const void *args){if(g_hook>=0)taiHookRelease(g_hook,g_display_ref);return SCE_KERNEL_STOP_SUCCESS;}
+int module_stop(SceSize argc,const void *args){(void)argc; (void)args; if(g_hook>=0)taiHookRelease(g_hook,g_display_ref);return SCE_KERNEL_STOP_SUCCESS;}
