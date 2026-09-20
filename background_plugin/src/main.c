@@ -3,10 +3,11 @@
 #include <psp2/ctrl.h>
 #include <psp2/display.h>
 #include <psp2/power.h>
+#include <psp2/io/fcntl.h>
 #include <taihen.h>
 #include <stdint.h>
 
-/* Vita AutoPlugin Background v0.38 - LiveArea HUD visibility fix.
+/* Vita AutoPlugin Background v0.39 - SceShell hook fallback + diagnostics.
    Loaded into SceShell (*main) and optionally apps (*ALL).
    R + D-pad Up toggles visibility. Other input is never consumed. */
 
@@ -15,6 +16,16 @@ static tai_hook_ref_t g_display_ref;
 static int g_visible = 1, g_latched = 0;
 static uint64_t g_tick = 0;
 static unsigned g_frames = 0, g_fps = 0;
+
+static void log_line(const char *s){
+  SceUID fd=sceIoOpen("ux0:data/VitaAutoPlugin/hud_plugin.log", SCE_O_WRONLY|SCE_O_CREAT|SCE_O_APPEND, 0666);
+  if(fd>=0){const char *p=s; while(*p)p++; sceIoWrite(fd,s,(SceSize)(p-s)); sceIoWrite(fd,"\n",1); sceIoClose(fd);}
+}
+static void log_hook(const char *kind,SceUID id){
+  char b[64],*p=b; while(*kind)*p++=*kind++; *p++=' '; *p++='0'; *p++='x';
+  static const char h[]="0123456789ABCDEF"; unsigned v=(unsigned)id;
+  for(int i=7;i>=0;i--)*p++=h[(v>>(i*4))&15]; *p=0; log_line(b);
+}
 
 static const uint8_t *glyph(char c) {
   static const uint8_t blank[7]={0,0,0,0,0,0,0};
@@ -76,7 +87,18 @@ static int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam,int sy
 
 int module_start(SceSize argc,const void *args){
   (void)argc; (void)args;
+  log_line("v0.39 module_start");
+  /* First try the same import hook used by Framecounter/Screenie.
+     On SceShell some firmwares/builds do not expose that import from the main
+     module, so fall back to hooking the SceDisplay export in this process. */
   g_hook=taiHookFunctionImport(&g_display_ref,TAI_MAIN_MODULE,TAI_ANY_LIBRARY,0x7A410B64,sceDisplaySetFrameBuf_patched);
-  return g_hook<0 ? SCE_KERNEL_START_NO_RESIDENT : SCE_KERNEL_START_SUCCESS;
+  log_hook("import",g_hook);
+  if(g_hook<0){
+    g_hook=taiHookFunctionExport(&g_display_ref,"SceDisplay",TAI_ANY_LIBRARY,0x7A410B64,sceDisplaySetFrameBuf_patched);
+    log_hook("export",g_hook);
+  }
+  if(g_hook<0){log_line("HOOK FAILED"); return SCE_KERNEL_START_NO_RESIDENT;}
+  log_line("HOOK OK");
+  return SCE_KERNEL_START_SUCCESS;
 }
 int module_stop(SceSize argc,const void *args){(void)argc; (void)args; if(g_hook>=0)taiHookRelease(g_hook,g_display_ref);return SCE_KERNEL_STOP_SUCCESS;}
