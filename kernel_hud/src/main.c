@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <psp2kern/power.h>
 
-/* Vita AutoPlugin HUD v0.43
+/* Vita AutoPlugin HUD v0.44
    Kernel framebuffer hook: intended to stay visible on LiveArea and apps.
    R + D-pad Up toggles visibility. It never consumes controller input. */
 
@@ -21,8 +21,17 @@ static unsigned g_frames = 0, g_fps = 0;
 /* Resolved from ScePower exactly as PSVshell does; avoids a fake GPU value. */
 static int (*g_gpu_get)(int *a1, int *a2) = 0;
 
+/* PSVshell defines this private SceSysmem layout locally; it is not supplied by
+   current VitaSDK public headers. Keep the exact four-field layout used there. */
+typedef struct VapSysmemAddressSpaceInfo {
+  uintptr_t base;
+  uint32_t total;
+  uint32_t free;
+  uint32_t unkC;
+} VapSysmemAddressSpaceInfo;
+
 /* Optional live main-memory metric. If unavailable, the row is omitted (never N-A). */
-static int (*g_addrspace_info)(uint32_t a1, SceSysmemAddressSpaceInfo *a2) = 0;
+static int (*g_addrspace_info)(uint32_t a1, VapSysmemAddressSpaceInfo *a2) = 0;
 int module_get_export_func(SceUID pid, const char *modname, uint32_t libnid, uint32_t funcnid, uintptr_t *func);
 SceUInt32 ksceKernelSysrootGetCurrentAddressSpaceCB(void);
 
@@ -39,7 +48,7 @@ static int mem_used_mb(void){
   if(!cas) return -1;
   uint32_t asid=*(uint32_t *)(cas+328);
   if(!asid) return -1;
-  SceSysmemAddressSpaceInfo info;
+  VapSysmemAddressSpaceInfo info;
   if(g_addrspace_info(asid,&info)<0 || info.total<info.free) return -1;
   return (int)((info.total-info.free)/(1024u*1024u));
 }
