@@ -7,7 +7,7 @@
 #include <taihen.h>
 #include <stdint.h>
 
-/* Vita AutoPlugin Background v0.33 - framebuffer HUD prototype.
+/* Vita AutoPlugin Background v0.34 - framebuffer HUD prototype.
    Loaded into SceShell (*main) and optionally apps (*ALL).
    R + D-pad Up toggles visibility. Other input is never consumed. */
 
@@ -69,7 +69,6 @@ static int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam,int sy
   return TAI_CONTINUE(int,g_display_ref,pParam,sync);
 }
 
-void _start() __attribute__((weak,alias("module_start")));
 int module_start(SceSize argc,const void *args){
   g_hook=taiHookFunctionImport(&g_display_ref,TAI_MAIN_MODULE,TAI_ANY_LIBRARY,0x7A410B64,sceDisplaySetFrameBuf_patched);
   return g_hook<0 ? SCE_KERNEL_START_NO_RESIDENT : SCE_KERNEL_START_SUCCESS;
